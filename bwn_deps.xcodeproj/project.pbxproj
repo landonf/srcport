@@ -69,7 +69,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		0595502A1C35E97D0032A4AE /* ccmach */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = ccmach; sourceTree = BUILT_PRODUCTS_DIR; };
+		0595502A1C35E97D0032A4AE /* bwn_deps */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = bwn_deps; sourceTree = BUILT_PRODUCTS_DIR; };
 		059550361C35EAA80032A4AE /* main.mm */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = main.mm; sourceTree = "<group>"; tabWidth = 4; usesTabs = 0; };
 		05C56EEC1C42FFC5005E5D51 /* applicative.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = applicative.h; sourceTree = "<group>"; };
 		05C56EED1C42FFC5005E5D51 /* basic.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = basic.h; sourceTree = "<group>"; };
@@ -139,7 +139,7 @@
 		059550211C35E97D0032A4AE = {
 			isa = PBXGroup;
 			children = (
-				0595502C1C35E97D0032A4AE /* ccmach */,
+				0595502C1C35E97D0032A4AE /* bwn_deps */,
 				05C56EE71C42FFC5005E5D51 /* plstdcpp */,
 				0595502B1C35E97D0032A4AE /* Products */,
 			);
@@ -148,17 +148,17 @@
 		0595502B1C35E97D0032A4AE /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				0595502A1C35E97D0032A4AE /* ccmach */,
+				0595502A1C35E97D0032A4AE /* bwn_deps */,
 			);
 			name = Products;
 			sourceTree = "<group>";
 		};
-		0595502C1C35E97D0032A4AE /* ccmach */ = {
+		0595502C1C35E97D0032A4AE /* bwn_deps */ = {
 			isa = PBXGroup;
 			children = (
 				059550361C35EAA80032A4AE /* main.mm */,
 			);
-			path = ccmach;
+			path = bwn_deps;
 			sourceTree = "<group>";
 		};
 		05C56EE71C42FFC5005E5D51 /* plstdcpp */ = {
@@ -289,9 +289,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		059550291C35E97D0032A4AE /* ccmach */ = {
+		059550291C35E97D0032A4AE /* bwn_deps */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 059550311C35E97D0032A4AE /* Build configuration list for PBXNativeTarget "ccmach" */;
+			buildConfigurationList = 059550311C35E97D0032A4AE /* Build configuration list for PBXNativeTarget "bwn_deps" */;
 			buildPhases = (
 				059550261C35E97D0032A4AE /* Sources */,
 				059550271C35E97D0032A4AE /* Frameworks */,
@@ -303,9 +303,9 @@
 				05C56F431C43007B005E5D51 /* PBXTargetDependency */,
 				05C56F411C42FFE3005E5D51 /* PBXTargetDependency */,
 			);
-			name = ccmach;
-			productName = ccmach;
-			productReference = 0595502A1C35E97D0032A4AE /* ccmach */;
+			name = bwn_deps;
+			productName = bwn_deps;
+			productReference = 0595502A1C35E97D0032A4AE /* bwn_deps */;
 			productType = "com.apple.product-type.tool";
 		};
 /* End PBXNativeTarget section */
@@ -322,7 +322,7 @@
 					};
 				};
 			};
-			buildConfigurationList = 059550251C35E97D0032A4AE /* Build configuration list for PBXProject "ccmach" */;
+			buildConfigurationList = 059550251C35E97D0032A4AE /* Build configuration list for PBXProject "bwn_deps" */;
 			compatibilityVersion = "Xcode 3.2";
 			developmentRegion = English;
 			hasScannedForEncodings = 0;
@@ -340,7 +340,7 @@
 			);
 			projectRoot = "";
 			targets = (
-				059550291C35E97D0032A4AE /* ccmach */,
+				059550291C35E97D0032A4AE /* bwn_deps */,
 			);
 		};
 /* End PBXProject section */
@@ -506,7 +506,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		059550251C35E97D0032A4AE /* Build configuration list for PBXProject "ccmach" */ = {
+		059550251C35E97D0032A4AE /* Build configuration list for PBXProject "bwn_deps" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				0595502F1C35E97D0032A4AE /* Debug */,
@@ -515,7 +515,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		059550311C35E97D0032A4AE /* Build configuration list for PBXNativeTarget "ccmach" */ = {
+		059550311C35E97D0032A4AE /* Build configuration list for PBXNativeTarget "bwn_deps" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				059550321C35E97D0032A4AE /* Debug */,
