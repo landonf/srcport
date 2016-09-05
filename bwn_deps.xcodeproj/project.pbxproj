@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		059550371C35EAA80032A4AE /* main.mm in Sources */ = {isa = PBXBuildFile; fileRef = 059550361C35EAA80032A4AE /* main.mm */; };
+		059550371C35EAA80032A4AE /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 059550361C35EAA80032A4AE /* main.cpp */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -71,7 +71,7 @@
 		056FE88F1D7E05AA0073C4A3 /* README.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = README.txt; sourceTree = "<group>"; };
 		056FE8911D7E05AA0073C4A3 /* XSmallTest.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = XSmallTest.h; sourceTree = "<group>"; };
 		0595502A1C35E97D0032A4AE /* bwn_deps */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = bwn_deps; sourceTree = BUILT_PRODUCTS_DIR; };
-		059550361C35EAA80032A4AE /* main.mm */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = main.mm; sourceTree = "<group>"; tabWidth = 4; usesTabs = 0; };
+		059550361C35EAA80032A4AE /* main.cpp */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 8; lastKnownFileType = sourcecode.cpp.cpp; path = main.cpp; sourceTree = "<group>"; tabWidth = 8; usesTabs = 1; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -207,7 +207,7 @@
 		0595502C1C35E97D0032A4AE /* bwn_deps */ = {
 			isa = PBXGroup;
 			children = (
-				059550361C35EAA80032A4AE /* main.mm */,
+				059550361C35EAA80032A4AE /* main.cpp */,
 			);
 			path = bwn_deps;
 			sourceTree = "<group>";
@@ -268,7 +268,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				059550371C35EAA80032A4AE /* main.mm in Sources */,
+				059550371C35EAA80032A4AE /* main.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -298,19 +298,67 @@
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_PREPROCESSOR_DEFINITIONS = (
-					"DEBUG=1",
-					"$(inherited)",
+					__STDC_CONSTANT_MACROS,
+					__STDC_FORMAT_MACROS,
+					__STDC_LIMIT_MACROS,
 				);
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
-				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"/Applications/Xcode\\ 6.2.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include",
+					"/opt/local/libexec/llvm-3.8/include",
+				);
+				LD_RUNPATH_SEARCH_PATHS = "/opt/local/libexec/llvm-3.8/lib";
 				MACOSX_DEPLOYMENT_TARGET = 10.9;
 				MTL_ENABLE_DEBUG_INFO = YES;
 				ONLY_ACTIVE_ARCH = YES;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = (
+					"-lclang",
+					"-lLLVM",
+					"-lclangARCMigrate",
+					"-lclangAST",
+					"-lclangASTMatchers",
+					"-lclangAnalysis",
+					"-lclangApplyReplacements",
+					"-lclangBasic",
+					"-lclangCodeGen",
+					"-lclangDriver",
+					"-lclangDynamicASTMatchers",
+					"-lclangEdit",
+					"-lclangFormat",
+					"-lclangFrontend",
+					"-lclangFrontendTool",
+					"-lclangIndex",
+					"-lclangLex",
+					"-lclangParse",
+					"-lclangQuery",
+					"-lclangRename",
+					"-lclangRewrite",
+					"-lclangRewriteFrontend",
+					"-lclangSema",
+					"-lclangSerialization",
+					"-lclangStaticAnalyzerCheckers",
+					"-lclangStaticAnalyzerCore",
+					"-lclangStaticAnalyzerFrontend",
+					"-lclangTidy",
+					"-lclangTidyCERTModule",
+					"-lclangTidyCppCoreGuidelinesModule",
+					"-lclangTidyGoogleModule",
+					"-lclangTidyLLVMModule",
+					"-lclangTidyMiscModule",
+					"-lclangTidyModernizeModule",
+					"-lclangTidyPerformanceModule",
+					"-lclangTidyReadabilityModule",
+					"-lclangTidyUtils",
+					"-lclangTooling",
+					"-lclangToolingCore",
+				);
 				SDKROOT = macosx;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 			};
@@ -338,14 +386,66 @@
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu99;
-				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					__STDC_CONSTANT_MACROS,
+					__STDC_FORMAT_MACROS,
+					__STDC_LIMIT_MACROS,
+				);
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"/Applications/Xcode\\ 6.2.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include",
+					"/opt/local/libexec/llvm-3.8/include",
+				);
+				LD_RUNPATH_SEARCH_PATHS = "/opt/local/libexec/llvm-3.8/lib";
 				MACOSX_DEPLOYMENT_TARGET = 10.9;
 				MTL_ENABLE_DEBUG_INFO = NO;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = (
+					"-lclang",
+					"-lLLVM",
+					"-lclangARCMigrate",
+					"-lclangAST",
+					"-lclangASTMatchers",
+					"-lclangAnalysis",
+					"-lclangApplyReplacements",
+					"-lclangBasic",
+					"-lclangCodeGen",
+					"-lclangDriver",
+					"-lclangDynamicASTMatchers",
+					"-lclangEdit",
+					"-lclangFormat",
+					"-lclangFrontend",
+					"-lclangFrontendTool",
+					"-lclangIndex",
+					"-lclangLex",
+					"-lclangParse",
+					"-lclangQuery",
+					"-lclangRename",
+					"-lclangRewrite",
+					"-lclangRewriteFrontend",
+					"-lclangSema",
+					"-lclangSerialization",
+					"-lclangStaticAnalyzerCheckers",
+					"-lclangStaticAnalyzerCore",
+					"-lclangStaticAnalyzerFrontend",
+					"-lclangTidy",
+					"-lclangTidyCERTModule",
+					"-lclangTidyCppCoreGuidelinesModule",
+					"-lclangTidyGoogleModule",
+					"-lclangTidyLLVMModule",
+					"-lclangTidyMiscModule",
+					"-lclangTidyModernizeModule",
+					"-lclangTidyPerformanceModule",
+					"-lclangTidyReadabilityModule",
+					"-lclangTidyUtils",
+					"-lclangTooling",
+					"-lclangToolingCore",
+				);
 				SDKROOT = macosx;
 			};
 			name = Release;
@@ -354,11 +454,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CLANG_ENABLE_MODULES = YES;
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(PROJECT_DIR)",
-				);
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks @loader_path/../Frameworks $(PROJECT_DIR)";
+				LIBRARY_SEARCH_PATHS = "/opt/local/libexec/llvm-3.8/lib";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 			};
@@ -368,11 +465,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CLANG_ENABLE_MODULES = YES;
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(PROJECT_DIR)",
-				);
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks @loader_path/../Frameworks $(PROJECT_DIR)";
+				LIBRARY_SEARCH_PATHS = "/opt/local/libexec/llvm-3.8/lib";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
