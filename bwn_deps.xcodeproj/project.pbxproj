@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0588235E1D7E948400DED395 /* Project.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0588235C1D7E948400DED395 /* Project.cpp */; };
 		059550371C35EAA80032A4AE /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 059550361C35EAA80032A4AE /* main.cpp */; };
 /* End PBXBuildFile section */
 
@@ -70,6 +71,8 @@
 		056FE88E1D7E05AA0073C4A3 /* unit_type.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = unit_type.hpp; sourceTree = "<group>"; };
 		056FE88F1D7E05AA0073C4A3 /* README.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = README.txt; sourceTree = "<group>"; };
 		056FE8911D7E05AA0073C4A3 /* XSmallTest.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = XSmallTest.h; sourceTree = "<group>"; };
+		0588235C1D7E948400DED395 /* Project.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Project.cpp; sourceTree = "<group>"; };
+		0588235D1D7E948400DED395 /* Project.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = Project.hpp; sourceTree = "<group>"; };
 		0595502A1C35E97D0032A4AE /* bwn_deps */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = bwn_deps; sourceTree = BUILT_PRODUCTS_DIR; };
 		059550361C35EAA80032A4AE /* main.cpp */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 8; lastKnownFileType = sourcecode.cpp.cpp; path = main.cpp; sourceTree = "<group>"; tabWidth = 8; usesTabs = 1; };
 /* End PBXFileReference section */
@@ -208,6 +211,8 @@
 			isa = PBXGroup;
 			children = (
 				059550361C35EAA80032A4AE /* main.cpp */,
+				0588235C1D7E948400DED395 /* Project.cpp */,
+				0588235D1D7E948400DED395 /* Project.hpp */,
 			);
 			path = bwn_deps;
 			sourceTree = "<group>";
@@ -269,6 +274,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				059550371C35EAA80032A4AE /* main.cpp in Sources */,
+				0588235E1D7E948400DED395 /* Project.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
