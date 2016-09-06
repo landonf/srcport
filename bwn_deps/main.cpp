@@ -25,20 +25,12 @@ using namespace clang::tooling;
 using namespace llvm;
 using namespace std;
 
-// Apply a custom category to all command-line options so that they are the
-// only ones displayed.
-static llvm::cl::OptionCategory BwnToolCategory("bwn_deps options");
 
-// CommonOptionsParser declares HelpMessage with a description of the common
-// command-line options related to the compilation database and input files.
-// It's nice to have this help message in all tools.
+static llvm::cl::OptionCategory PortToolCategory("port options");
 static cl::extrahelp CommonHelp(CommonOptionsParser::HelpMessage);
 
-// A help message for this specific tool can be added afterwards.
-static cl::extrahelp MoreHelp("\nMore help text...");
-
-static cl::list<string> TargetPaths("target-path", cl::cat(BwnToolCategory));
-static cl::list<string> SourcePaths("src-path", cl::cat(BwnToolCategory));
+static cl::list<string> HostPaths("host-path", cl::cat(PortToolCategory), cl::desc("Mark all definitions vended within this directory or file as unavailable on the target system"));
+static cl::list<string> SourcePaths("src-path", cl::cat(PortToolCategory), cl::desc("Perform portability analysis within this directory or source file"));
 
 class PortabilityVisitor: public RecursiveASTVisitor<PortabilityVisitor> {
 public:
@@ -102,9 +94,9 @@ unique_ptr<FrontendActionFactory> newFrontendAnalysisActionFactory(shared_ptr<Pr
 
 
 int main(int argc, const char **argv) {
-	CommonOptionsParser opts(argc, argv, BwnToolCategory);
+	CommonOptionsParser opts(argc, argv, PortToolCategory);
 	ClangTool tool(opts.getCompilations(), opts.getSourcePathList());
 
-	auto proj = make_shared<Project>(*&SourcePaths, *&TargetPaths);
+	auto proj = make_shared<Project>(*&SourcePaths, *&HostPaths);
 	return (tool.run(newFrontendAnalysisActionFactory(proj).get()));
 }

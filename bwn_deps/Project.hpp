@@ -21,7 +21,7 @@ private:
 
 class Project {
 public:
-    Project (const std::vector<std::string> &sourcePaths, const std::vector<std::string> &targetPaths) {
+    Project (const std::vector<std::string> &sourcePaths, const std::vector<std::string> &hostPaths) {
         using ftl::operator%;
         
         const auto &toPath = [](const std::string &str) {
@@ -29,16 +29,16 @@ public:
         };
 
         _sourcePaths = toPath % sourcePaths;
-        _targetPaths = toPath % targetPaths;
+        _hostPaths = toPath % hostPaths;
     }
     
-    Project (const std::vector<Path> &sourcePaths, const std::vector<Path> &targetPaths) : _sourcePaths(sourcePaths), _targetPaths(targetPaths) {
+    Project (const std::vector<Path> &sourcePaths, const std::vector<Path> &hostPaths) : _sourcePaths(sourcePaths), _hostPaths(hostPaths) {
     }
 
-    const std::vector<Path> &targetPaths () { return _targetPaths; }
+    const std::vector<Path> &hostPaths () { return _hostPaths; }
     const std::vector<Path> &sourcePaths () { return _sourcePaths; }
 
 private:
     std::vector<Path> _sourcePaths;
-    std::vector<Path> _targetPaths;
+    std::vector<Path> _hostPaths;
 };
