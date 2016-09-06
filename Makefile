@@ -1,6 +1,6 @@
 .PATH: ${.CURDIR}/src
 
-PROG=		bwn_deps
+PROG=		srcport
 MAN=
 
 SRCS=		main.cpp

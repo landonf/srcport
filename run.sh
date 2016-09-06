@@ -10,7 +10,7 @@ SRCROOT=$1
 OBJDIR=$2
 KERNCONF=${3:-GENERIC}
 
-BWN_DEPS="${BASEDIR}/obj/bwn_deps"
+BWN_DEPS="${BASEDIR}/obj/srcport"
 
 usage() {
 	echo "Usage: ${ARG0} <freebsd src> <obj dir> [kernconf]"
