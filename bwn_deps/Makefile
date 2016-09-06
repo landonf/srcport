@@ -1,3 +1,5 @@
+.PATH: ${.CURDIR}/src
+
 PROG=		bwn_deps
 MAN=
 
@@ -7,12 +9,15 @@ CC=		clang++${LLVM_VER}
 
 LLVM_VER?=	38
 LLVM_CFG=	llvm-config${LLVM_VER}
-LLVM_CXXFLAGS!=	${LLVM_CFG} --cxxflags
+LLVM_CXXFLAGS!=	${LLVM_CFG} --cxxflags | sed s/-fno-exceptions\ //g
 LLVM_CFLAGS!=	${LLVM_CFG} --cflags
 LLVM_LDFLAGS!=	${LLVM_CFG} --ldflags
 LLVM_LIBS!=	${LLVM_CFG} --libs --system-libs
 
-CXXFLAGS=	${LLVM_CXXFLAGS}
+FTL_CXXFLAGS=	-isystem ${.CURDIR}/ftl
+
+CXXFLAGS=	${LLVM_CXXFLAGS} \
+		${FTL_CXXFLAGS}
 CFLAGS=		-pthread \
 		${LLVM_CFLAGS}
 LDFLAGS=	${LLVM_LDFLAGS} \
