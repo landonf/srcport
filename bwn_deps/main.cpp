@@ -66,7 +66,7 @@ private:
 	FindNamedClassVisitor _visitor;
 };
 
-class FindNamedClassAction : public clang::ASTFrontendAction {
+class PortabilityAnalysisAction : public clang::ASTFrontendAction {
 public:
 	virtual std::unique_ptr<clang::ASTConsumer> CreateASTConsumer(clang::CompilerInstance &c, llvm::StringRef inFile) {
 		llvm::outs() << "In file: " << inFile << "\n";
@@ -74,8 +74,21 @@ public:
 	}
 };
 
+
+std::unique_ptr<FrontendActionFactory> newFrontendAnalysisActionFactory() {
+  class SimpleFrontendActionFactory : public FrontendActionFactory {
+  public:
+    clang::FrontendAction *create() override { return new PortabilityAnalysisAction(); }
+  };
+
+  return std::unique_ptr<FrontendActionFactory>(new SimpleFrontendActionFactory);
+}
+
+
 int main(int argc, const char **argv) {
-	CommonOptionsParser opts(argc, argv, BwnToolCategory);
-	ClangTool tool(opts.getCompilations(), opts.getSourcePathList());
-	return tool.run(newFrontendActionFactory<FindNamedClassAction>().get());
+	auto opts = std::make_shared<CommonOptionsParser>(argc, argv, BwnToolCategory);
+
+	ClangTool tool(opts->getCompilations(), opts->getSourcePathList());
+
+	return (tool.run(newFrontendAnalysisActionFactory().get()));
 }
