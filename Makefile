@@ -14,7 +14,7 @@ LLVM_CFLAGS!=	${LLVM_CFG} --cflags
 LLVM_LDFLAGS!=	${LLVM_CFG} --ldflags
 LLVM_LIBS!=	${LLVM_CFG} --libs --system-libs
 
-FTL_CXXFLAGS=	-isystem ${.CURDIR}/ftl
+FTL_CXXFLAGS=	-isystem ${.CURDIR}/dependencies/ftl
 
 CXXFLAGS=	${LLVM_CXXFLAGS} \
 		${FTL_CXXFLAGS}
