@@ -1,5 +1,18 @@
 This directory contains source and binary dependencies:
 
+catch
+    Description:
+      C++11 unit test framework.
+
+    Version:
+      v1.5.6 downloaded from https://github.com/philsquared/Catch
+
+    License:
+      Boost 1.0 (BSD-like)
+
+    Modifications:
+      None
+
 ftl
     Description:
       C++11 functional programming library.
