@@ -53,4 +53,9 @@ for f in $CFLAGS; do
 done
 
 cd "${SRCROOT}/sys/dev/bwn" || exit 1
-exec ${BWN_DEPS} ${T_FLAGS} ${BWN_SRCS}
+
+${BWN_DEPS} ${T_FLAGS} ${BWN_SRCS}
+RET=$?
+echo "Done"
+
+exit $RET

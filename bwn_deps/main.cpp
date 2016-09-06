@@ -36,45 +36,46 @@ static cl::extrahelp MoreHelp("\nMore help text...");
 
 class FindNamedClassVisitor: public RecursiveASTVisitor<FindNamedClassVisitor> {
 public:
-	explicit FindNamedClassVisitor(ASTContext *Context): Context(Context) {}
+	explicit FindNamedClassVisitor(ASTContext *ctx) : _ctx(ctx), _smgr(ctx->getSourceManager())
+	{}
+	
+	virtual bool VisitDeclRefExpr (DeclRefExpr *decl) {
+		const auto &loc = _ctx->getFullLoc(decl->getLocStart());
+		if (!loc.isValid())
+			return (true);
 
-	bool VisitCXXRecordDecl(CXXRecordDecl *Declaration) {
-		if (Declaration->getQualifiedNameAsString() == "n::m::C") {
-			FullSourceLoc FullLocation = Context->getFullLoc(Declaration->getLocStart());
-			if (FullLocation.isValid())
-				llvm::outs() << "Found declaration at "
-					<< FullLocation.getSpellingLineNumber() << ":"
-					<< FullLocation.getSpellingColumnNumber() << "\n";
-		}
-		return true;
-	}
+		const FileEntry *fent = _smgr.getFileEntryForID(_smgr.getFileID(loc));
+		
+		return (true);
+	};
 
 private:
-	ASTContext *Context;
+	ASTContext *_ctx;
+	SourceManager &_smgr;
 };
 
 class FindNamedClassConsumer : public clang::ASTConsumer {
 public:
-	explicit FindNamedClassConsumer(ASTContext *Context) : Visitor(Context) {}
+	explicit FindNamedClassConsumer(ASTContext *ctx) : _visitor(ctx) {}
 
-	virtual void HandleTranslationUnit(clang::ASTContext &Context) {
-		Visitor.TraverseDecl(Context.getTranslationUnitDecl());
+	virtual void HandleTranslationUnit(clang::ASTContext &ctx) {
+		_visitor.TraverseDecl(ctx.getTranslationUnitDecl());
 	}
+
 private:
-	FindNamedClassVisitor Visitor;
+	FindNamedClassVisitor _visitor;
 };
 
 class FindNamedClassAction : public clang::ASTFrontendAction {
 public:
-	virtual std::unique_ptr<clang::ASTConsumer> CreateASTConsumer(clang::CompilerInstance &Compiler, llvm::StringRef InFile) {
-	return std::unique_ptr<clang::ASTConsumer>(
-		new FindNamedClassConsumer(&Compiler.getASTContext()));
+	virtual std::unique_ptr<clang::ASTConsumer> CreateASTConsumer(clang::CompilerInstance &c, llvm::StringRef inFile) {
+		llvm::outs() << "In file: " << inFile << "\n";
+		return std::unique_ptr<clang::ASTConsumer>(new FindNamedClassConsumer(&c.getASTContext()));
 	}
 };
 
 int main(int argc, const char **argv) {
-	CommonOptionsParser OptionsParser(argc, argv, BwnToolCategory);
-
-	ClangTool Tool(OptionsParser.getCompilations(),OptionsParser.getSourcePathList());
-	return Tool.run(newFrontendActionFactory<SyntaxOnlyAction>().get());
+	CommonOptionsParser opts(argc, argv, BwnToolCategory);
+	ClangTool tool(opts.getCompilations(), opts.getSourcePathList());
+	return tool.run(newFrontendActionFactory<FindNamedClassAction>().get());
 }
