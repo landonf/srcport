@@ -2,9 +2,16 @@
 
 PROG_CXX=	tests
 MAN=
-CFLAGS=		-I${.CURDIR}/dependencies/catch
+CFLAGS=		-I${.CURDIR}/../src \
+		-I${.CURDIR}/dependencies/catch
 
-SRCS=		tests.cpp
+SRCS=		tests.cpp \
+		project_tests.cpp
+
+test: ${PROG_CXX}
+	${.OBJDIR}/${PROG_CXX}
+
+.PHONY: test
 
 .include "../srcport.mk"
 .include <bsd.prog.mk>

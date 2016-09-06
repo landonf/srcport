@@ -13,10 +13,10 @@
 #include <limits>
 #include <array>
 
-#include <PLStdCPP/ftl/functional.h>
-#include <PLStdCPP/ftl/type_functions.h>
-#include <PLStdCPP/ftl/concepts/monad.h>
-#include <PLStdCPP/ftl/concepts/monoid.h>
+#include <ftl/functional.h>
+#include <ftl/type_functions.h>
+#include <ftl/concepts/monad.h>
+#include <ftl/concepts/monoid.h>
 
 /**
  * Polymorphic type-safe operations over tuples containing heterogeneous values.

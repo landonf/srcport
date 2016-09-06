@@ -1,6 +1,10 @@
 .PATH: ${.CURDIR}/src
 
-SRCS+=		Project.cpp
+SRCS+=		project.cpp
+
+CFLAGS_WARN?=	-Wall -Werror -Wextra \
+		-Wno-unused-parameter \
+		-Wno-gnu-zero-variadic-macro-arguments
 
 LLVM_VER?=	38
 LLVM_CFG=	llvm-config${LLVM_VER}
@@ -11,10 +15,16 @@ LLVM_LIBS!=	${LLVM_CFG} --libs --system-libs
 
 FTL_CXXFLAGS=	-isystem ${.CURDIR}/dependencies/ftl
 
+PLCPP_CXXFLAGS=	-isystem ${.CURDIR}/dependencies/plstdcpp
+
 CXXFLAGS+=	${LLVM_CXXFLAGS} \
-		${FTL_CXXFLAGS}
+		${FTL_CXXFLAGS} \
+		${PLCPP_CXXFLAGS}
+
 CFLAGS+=	-pthread \
-		${LLVM_CFLAGS}
+		${LLVM_CFLAGS} \
+		${CFLAGS_WARN}
+
 LDFLAGS+=	${LLVM_LDFLAGS}
 
 LDADD+=		-lc++ \

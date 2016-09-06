@@ -24,51 +24,23 @@
  * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
  * THE POSSIBILITY OF SUCH DAMAGES.
- * 
- * $FreeBSD$
  */
 
-#ifndef _SRCPORT_PROJECT_HPP_
-#define _SRCPORT_PROJECT_HPP_
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD$");
 
-#include <string>
-#include <vector>
+#include "project.hpp"
+#include <cstdlib>
 
-#include <ftl/functional.h>
-#include <ftl/vector.h>
+#if 0
+Path
+Path::realPath ()
+{
+	char buf[PATH_MAX];
 
-class Path {
-public:
-    Path (const std::string &string) : _str(string) {}
-    
-    const std::string &stringValue () { return _str; }
-    
-private:
-    std::string _str;
-};
-
-class Project {
-public:
-    Project (const std::vector<std::string> &sourcePaths, const std::vector<std::string> &hostPaths) {
-        using ftl::operator%;
-        
-        const auto &toPath = [](const std::string &str) {
-            return Path(str);
-        };
-
-        _sourcePaths = toPath % sourcePaths;
-        _hostPaths = toPath % hostPaths;
-    }
-    
-    Project (const std::vector<Path> &sourcePaths, const std::vector<Path> &hostPaths) : _sourcePaths(sourcePaths), _hostPaths(hostPaths) {
-    }
-
-    const std::vector<Path> &hostPaths () { return _hostPaths; }
-    const std::vector<Path> &sourcePaths () { return _sourcePaths; }
-
-private:
-    std::vector<Path> _sourcePaths;
-    std::vector<Path> _hostPaths;
-};
-
-#endif /* _SRCPORT_PROJECT_HPP_ */
+	if (realpath(_str.c_str(), buf) == NULL)
+		return (*this);
+	else
+		return Path(buf);
+}
+#endif

@@ -280,7 +280,7 @@ public: \
  * automatically generated.
  */
 #define PL_RECORD_STRUCT(name, ...) struct name { \
-    PL_RECORD_FIELDS(name, __VA_ARGS__); \
-};
+    PL_RECORD_FIELDS(name, __VA_ARGS__) \
+}
 
 } /* namespace pl */

@@ -29,4 +29,18 @@
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD$");
 
-#include "Project.hpp"
+#include <catch.hpp>
+
+#include "project.hpp"
+
+TEST_CASE("project paths", "[project]" ) {
+	const auto hostPaths = std::vector<Path> {
+		Path("/sys")
+	};
+	const auto portPaths = std::vector<Path> {
+		Path("/sys/dev/bwn")
+	};
+
+	Project proj { std::vector<Path>(), std::vector<Path>() };
+	REQUIRE(1 == 1);
+}
