@@ -46,15 +46,12 @@ if [ ! -x "${BWN_DEPS}" ]; then
 	exit 1
 fi
 
-# Generate our tool cflags
+# Source cflags
 CFLAGS="-I${KERNOBJS} -I${SRCROOT}/sys -I${SRCROOT}/sys/sys -fno-builtin -nostdinc -D_KERNEL -Wno-pointer-sign"
-for f in $CFLAGS; do
-	T_FLAGS="${T_FLAGS} --extra-arg=${f}"
-done
 
 cd "${SRCROOT}/sys/dev/bwn" || exit 1
 
-${BWN_DEPS} ${T_FLAGS} ${BWN_SRCS}
+${BWN_DEPS} ${BWN_SRCS} -- ${CFLAGS}
 RET=$?
 echo "Done"
 
