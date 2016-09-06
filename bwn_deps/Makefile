@@ -27,32 +27,4 @@ LDADD=		-lc++ \
 		-lclangLex -lclangBasic -lclang \
 		${LLVM_LIBS}
 
-#	-lclangBasic \
-	-lclangAST \
-	-lclangASTMatchers \
-	-lclangAnalysis \
-	-lclangApplyReplacements \
-	-lclangCodeGen \
-	-lclangDriver \
-	-lclangDynamicASTMatchers \
-	-lclangEdit \
-	-lclangFormat \
-	-lclangFrontend \
-	-lclangFrontendTool \
-	-lclangIndex \
-	-lclangLex \
-	-lclangParse \
-	-lclangQuery \
-	-lclangRename \
-	-lclangRewrite \
-	-lclangRewriteFrontend \
-	-lclangSema \
-	-lclangSerialization \
-	-lclangStaticAnalyzerCheckers \
-	-lclangStaticAnalyzerCore \
-	-lclangStaticAnalyzerFrontend \
-	-lclangTooling \
-	-lclangToolingCore \
-
-
 .include <bsd.prog.mk>
