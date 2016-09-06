@@ -318,6 +318,7 @@
 					"$(inherited)",
 					"/Applications/Xcode\\ 6.2.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include",
 					"/opt/local/libexec/llvm-3.8/include",
+					"$(SRCROOT)/Dependencies/ftl",
 				);
 				LD_RUNPATH_SEARCH_PATHS = "/opt/local/libexec/llvm-3.8/lib";
 				MACOSX_DEPLOYMENT_TARGET = 10.9;
@@ -406,6 +407,7 @@
 					"$(inherited)",
 					"/Applications/Xcode\\ 6.2.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include",
 					"/opt/local/libexec/llvm-3.8/include",
+					"$(SRCROOT)/Dependencies/ftl",
 				);
 				LD_RUNPATH_SEARCH_PATHS = "/opt/local/libexec/llvm-3.8/lib";
 				MACOSX_DEPLOYMENT_TARGET = 10.9;

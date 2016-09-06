@@ -18,9 +18,12 @@
 
 #include "llvm/Support/CommandLine.h"
 
+#include "Project.hpp"
+
 using namespace clang;
 using namespace clang::tooling;
 using namespace llvm;
+using namespace std;
 
 // Apply a custom category to all command-line options so that they are the
 // only ones displayed.
@@ -34,9 +37,12 @@ static cl::extrahelp CommonHelp(CommonOptionsParser::HelpMessage);
 // A help message for this specific tool can be added afterwards.
 static cl::extrahelp MoreHelp("\nMore help text...");
 
-class FindNamedClassVisitor: public RecursiveASTVisitor<FindNamedClassVisitor> {
+static cl::list<string> TargetPaths("target-path", cl::cat(BwnToolCategory));
+static cl::list<string> SourcePaths("src-path", cl::cat(BwnToolCategory));
+
+class PortabilityVisitor: public RecursiveASTVisitor<PortabilityVisitor> {
 public:
-	explicit FindNamedClassVisitor(ASTContext *ctx) : _ctx(ctx), _smgr(ctx->getSourceManager())
+	explicit PortabilityVisitor (shared_ptr<Project> &proj, ASTContext *ctx) : _proj(proj), _ctx(ctx), _smgr(ctx->getSourceManager())
 	{}
 	
 	virtual bool VisitDeclRefExpr (DeclRefExpr *decl) {
@@ -50,45 +56,55 @@ public:
 	};
 
 private:
+	shared_ptr<Project> _proj;
 	ASTContext *_ctx;
 	SourceManager &_smgr;
 };
 
-class FindNamedClassConsumer : public clang::ASTConsumer {
+class PortabilityConsumer : public clang::ASTConsumer {
 public:
-	explicit FindNamedClassConsumer(ASTContext *ctx) : _visitor(ctx) {}
+	explicit PortabilityConsumer (shared_ptr<Project> &proj, ASTContext *ctx) : _visitor(proj, ctx) {}
 
 	virtual void HandleTranslationUnit(clang::ASTContext &ctx) {
 		_visitor.TraverseDecl(ctx.getTranslationUnitDecl());
 	}
 
 private:
-	FindNamedClassVisitor _visitor;
+	PortabilityVisitor _visitor;
 };
 
-class PortabilityAnalysisAction : public clang::ASTFrontendAction {
+class PortabilityAction : public clang::ASTFrontendAction {
 public:
-	virtual std::unique_ptr<clang::ASTConsumer> CreateASTConsumer(clang::CompilerInstance &c, llvm::StringRef inFile) {
+	PortabilityAction (shared_ptr<Project> &proj) : _proj(proj) {}
+
+	virtual unique_ptr<clang::ASTConsumer> CreateASTConsumer(clang::CompilerInstance &c, llvm::StringRef inFile) {
 		llvm::outs() << "In file: " << inFile << "\n";
-		return std::unique_ptr<clang::ASTConsumer>(new FindNamedClassConsumer(&c.getASTContext()));
+		return unique_ptr<clang::ASTConsumer>(new PortabilityConsumer(_proj, &c.getASTContext()));
 	}
+private:
+	shared_ptr<Project> _proj;
 };
 
 
-std::unique_ptr<FrontendActionFactory> newFrontendAnalysisActionFactory() {
+unique_ptr<FrontendActionFactory> newFrontendAnalysisActionFactory(shared_ptr<Project> &proj) {
   class SimpleFrontendActionFactory : public FrontendActionFactory {
   public:
-    clang::FrontendAction *create() override { return new PortabilityAnalysisAction(); }
+	  SimpleFrontendActionFactory(shared_ptr<Project> &proj) : _proj(proj) {}
+
+	  clang::FrontendAction *create() override { return new PortabilityAction(_proj); }
+	  
+  private:
+	  shared_ptr<Project> _proj;
   };
 
-  return std::unique_ptr<FrontendActionFactory>(new SimpleFrontendActionFactory);
+  return unique_ptr<FrontendActionFactory>(new SimpleFrontendActionFactory(proj));
 }
 
 
 int main(int argc, const char **argv) {
-	auto opts = std::make_shared<CommonOptionsParser>(argc, argv, BwnToolCategory);
+	CommonOptionsParser opts(argc, argv, BwnToolCategory);
+	ClangTool tool(opts.getCompilations(), opts.getSourcePathList());
 
-	ClangTool tool(opts->getCompilations(), opts->getSourcePathList());
-
-	return (tool.run(newFrontendAnalysisActionFactory().get()));
+	auto proj = make_shared<Project>(*&SourcePaths, *&TargetPaths);
+	return (tool.run(newFrontendAnalysisActionFactory(proj).get()));
 }

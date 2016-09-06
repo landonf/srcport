@@ -6,7 +6,11 @@
 #include <string>
 #include <vector>
 
+#include <ftl/functional.h>
+#include <ftl/vector.h>
+
 class Path {
+public:
     Path (const std::string &string) : _str(string) {}
     
     const std::string &stringValue () { return _str; }
@@ -16,7 +20,19 @@ private:
 };
 
 class Project {
-    Project (const std::vector<Path> sourcePaths, const std::vector<Path> targetPaths) : _sourcePaths(sourcePaths), _targetPaths(targetPaths) {
+public:
+    Project (const std::vector<std::string> &sourcePaths, const std::vector<std::string> &targetPaths) {
+        using ftl::operator%;
+        
+        const auto &toPath = [](const std::string &str) {
+            return Path(str);
+        };
+
+        _sourcePaths = toPath % sourcePaths;
+        _targetPaths = toPath % targetPaths;
+    }
+    
+    Project (const std::vector<Path> &sourcePaths, const std::vector<Path> &targetPaths) : _sourcePaths(sourcePaths), _targetPaths(targetPaths) {
     }
 
     const std::vector<Path> &targetPaths () { return _targetPaths; }
