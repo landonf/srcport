@@ -49,7 +49,6 @@ public:
 	using size_type = size_t;
 
 	explicit Path (const std::string &string);
-
 	explicit Path (const std::vector<std::string> &components);
 
 	/**
@@ -59,13 +58,13 @@ public:
 		return _str;
 	}
 
-
 	bool inNormalForm () const;
 	std::vector<std::string> split (bool normalize = true) const;
 	Path normalize () const;
 	result<Path> resolve () const;
 
 	bool hasPrefix (const Path &prefix) const;
+	bool isPrefix (const Path &path) const;
 
 	size_type size () { return (_size); }
 
@@ -80,14 +79,39 @@ private:
 	bool		_normalForm;
 };
 
-#if 0
 /**
- * A set of path prefix matches.
+ * A set of path prefixes.
  */
-class PathMatch {
+class PathPattern {
+public:
+	PathPattern (std::initializer_list<std::string> &&prefix) : PathPattern(std::vector<std::string>(std::move(prefix))) {}
+	PathPattern (std::initializer_list<Path> &&prefix) : _prefixes(std::move(prefix)) {}
+
+	explicit PathPattern (const std::vector<std::string> &prefix);
+	explicit PathPattern (std::vector<Path> &&prefix) : _prefixes(std::move(prefix)) {}
+
+	/**
+	 * Return true if the pattern matches the given path.
+	 */
+	inline bool matches (const Path &path)
+	{
+		/* TODO: We should probably build a match table from the normalized,
+		 * path prefixes, rather than performing brute-force matching */
+		for (const auto &p : _prefixes) {
+			if (p.isPrefix(path))
+				return (true);
+		}
+
+		return (false);
+	}
+	
+	inline bool matches (std::string &&path) {
+		return (matches(Path(std::move(path))));
+	}
+
 private:
+	/** Prefixes to match against */
 	std::vector<Path> _prefixes;
 };
-#endif
 
 #endif /* _SRCPORT_PATHS_H_ */

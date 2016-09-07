@@ -39,6 +39,20 @@ std::string to_string (const Path &p) {
 	return p.stringValue();
 }
 
+/**
+ * Construct a new pattern instance with the given set of path prefixes.
+ */
+PathPattern::PathPattern (const std::vector<std::string> &prefixes)
+{
+        using ftl::operator%;
+        
+        const auto &toPath = [](const std::string &str) {
+            return (Path(str).normalize());
+        };
+
+        _prefixes = toPath % prefixes;
+}
+
 void
 Path::parse_path ()
 {
@@ -136,36 +150,58 @@ Path::operator!= (const Path &other) const
 }
 
 /**
- * Returns true if this path starts with the given directory prefix.
+ * Return true if @p path matches @p prefix.
  */
-bool
-Path::hasPrefix (const Path& prefix) const
+static bool
+match_prefix(const std::string &prefix, const std::string &path)
 {
-	/* Ensure that we're in normal form */
-	if (!this->inNormalForm())
-		return (this->normalize().hasPrefix(prefix));
-
-	if (!prefix.inNormalForm())
-		return (hasPrefix(prefix.normalize()));
-
-	const auto &p = prefix.stringValue();
-	const auto &ours = this->stringValue();
-
 	/* No match if prefix is larger than we are */
-	if (ours.size() < p.size())
+	if (path.size() < prefix.size())
 		return (false);
 
 	/* Equality match if we're the same size */
-	if (ours.size() == p.size())
-		return (ours == p);
+	if (path.size() == prefix.size())
+		return (path == prefix);
 
 	/* Otherwise, perform a prefix match */
-	const auto &m = mismatch(p.begin(), p.end(), ours.begin());
+	const auto &m = mismatch(prefix.begin(), prefix.end(), path.begin());
 
-	if (m.first == p.end() && ours[p.size()] == '/')
+	if (m.first == prefix.end() && path[prefix.size()] == '/')
 		return (true);
 
 	return (false);
+}
+
+/**
+ * Returns true if this path starts with the given prefix.
+ */
+bool
+Path::hasPrefix (const Path &prefix) const
+{
+	/* Ensure we're in normal form */
+	if (!prefix.inNormalForm())
+		return (hasPrefix(prefix.normalize()));
+	
+	if (!this->inNormalForm())
+		return (this->normalize().hasPrefix(prefix));
+
+	return (match_prefix(prefix.stringValue(), stringValue()));
+}
+
+/**
+ * Returns true if this path is a prefix for @p path.
+ */
+bool
+Path::isPrefix (const Path &path) const
+{
+	/* Ensure everything is in normal form */
+	if (!path.inNormalForm())
+		return (isPrefix(path.normalize()));
+	
+	if (!this->inNormalForm())
+		return (this->normalize().isPrefix(path));
+
+	return (match_prefix(this->stringValue(), path.stringValue()));
 }
 
 /**

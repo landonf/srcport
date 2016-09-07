@@ -43,7 +43,19 @@ namespace Catch {
     }; 
 }
 
-TEST_CASE("paths") {
+TEST_CASE("path matching") {
+	GIVEN("a prefix pattern") {
+		PathPattern pp({ "/foo", "/bar" });
+
+		REQUIRE(pp.matches("/foo/bar.c"));
+		REQUIRE(pp.matches("/bar/foo.c"));
+		REQUIRE(!pp.matches("/other/foo.c"));
+		
+		REQUIRE(!pp.matches("/other/foo.c"));
+	}
+}
+
+TEST_CASE("path") {
 	GIVEN("two equal paths") {
 		Path p1("/foo/bar/");
 		Path p2("/foo/bar");
