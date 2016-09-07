@@ -31,7 +31,7 @@ __FBSDID("$FreeBSD$");
 
 #include <catch.hpp>
 
-#include "paths.h"
+#include "paths.hh"
 
 using namespace std;
 

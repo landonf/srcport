@@ -24,35 +24,9 @@
  * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
  * THE POSSIBILITY OF SUCH DAMAGES.
- * 
- * $FreeBSD$
  */
 
-#ifndef _SRCPORT_PROJECT_HPP_
-#define _SRCPORT_PROJECT_HPP_
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD$");
 
-#include <string>
-#include <vector>
-
-#include <ftl/functional.h>
-#include <ftl/vector.h>
-#include <ftl/sum_type.h>
-
-#include "error.hpp"
-#include "paths.h"
-
-template<typename T> using result = ftl::sum_type<Error, T>;
-
-class Project {
-public:
-    Project (PathPattern &&sourcePaths, PathPattern &&hostPaths = PathPattern()) : _sourcePaths(std::move(sourcePaths)), _hostPaths(std::move(hostPaths)) {}
-    
-    const PathPattern &hostPaths () { return _hostPaths; }
-    const PathPattern &sourcePaths () { return _sourcePaths; }
-
-private:
-    PathPattern _sourcePaths;
-    PathPattern _hostPaths;
-};
-
-#endif /* _SRCPORT_PROJECT_HPP_ */
+#include "project.hh"

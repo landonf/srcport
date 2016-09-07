@@ -29,8 +29,9 @@
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD$");
 
-#include "paths.h"
 #include <cstdlib>
+
+#include "paths.hh"
 
 using namespace ftl;
 using namespace std;

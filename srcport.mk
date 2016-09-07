@@ -1,7 +1,7 @@
 .PATH: ${.CURDIR}/src
 
-SRCS+=		paths.cpp \
-		project.cpp
+SRCS+=		paths.cc \
+		project.cc
 
 CFLAGS_WARN?=	-Wall -Werror -Wextra \
 		-Wno-unused-parameter \

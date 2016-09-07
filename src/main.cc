@@ -41,7 +41,7 @@ __FBSDID("$FreeBSD$");
 
 #include "llvm/Support/CommandLine.h"
 
-#include "project.hpp"
+#include "project.hh"
 
 using namespace clang;
 using namespace clang::tooling;

@@ -28,8 +28,8 @@
  * $FreeBSD$
  */
 
-#ifndef _SRCPORT_ERROR_H_
-#define _SRCPORT_ERROR_H_
+#ifndef _SRCPORT_ERROR_HH_
+#define _SRCPORT_ERROR_HH_
 
 #include <cstring>
 
@@ -56,4 +56,4 @@ public:
 };
 
 
-#endif /* _SRCPORT_ERROR_H_ */
+#endif /* _SRCPORT_ERROR_HH_ */

@@ -1,7 +1,7 @@
 PROG_CXX=	srcport
 MAN=
 
-SRCS=		main.cpp
+SRCS=		main.cc
 
 SUBDIR=		tests
 

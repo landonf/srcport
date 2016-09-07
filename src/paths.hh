@@ -28,8 +28,8 @@
  * $FreeBSD$
  */
 
-#ifndef _SRCPORT_PATHS_H_
-#define _SRCPORT_PATHS_H_
+#ifndef _SRCPORT_PATHS_HH_
+#define _SRCPORT_PATHS_HH_
 
 #include <string>
 #include <vector>
@@ -38,8 +38,8 @@
 #include <ftl/vector.h>
 #include <ftl/sum_type.h>
 
-#include "error.hpp"
-#include "result.h"
+#include "error.hh"
+#include "result.hh"
 
 /**
  * File system path.
@@ -118,4 +118,4 @@ private:
 	std::vector<Path> _prefixes;
 };
 
-#endif /* _SRCPORT_PATHS_H_ */
+#endif /* _SRCPORT_PATHS_HH_ */
