@@ -63,17 +63,26 @@ private:
 
 class VisitorState {
 public:
-	VisitorState (std::shared_ptr<SymbolTable> &syms, clang::ASTContext *ast): 
-	    _syms(syms), _ast(ast), _srcManager(ast->getSourceManager())
-	{}
+	VisitorState (std::shared_ptr<SymbolTable> &syms, clang::CompilerInstance &c): 
+	    _syms(syms), _c(c), _ast(c.getASTContext()), _srcManager(_ast.getSourceManager())
+	{
+		assert(syms);
+	}
+
+	bool isHostRef (clang::DeclRefExpr *ref) const;
 
 	std::shared_ptr<SymbolTable> &syms () { return (_syms); }
-	clang::ASTContext *ast () { return (_ast); }
+	clang::CompilerInstance &c () { return (_c); }
+	clang::ASTContext &ast () { return (_ast); }
 	clang::SourceManager &srcManager () { return (_srcManager); }
 
 private:
+	bool locMatches (clang::SourceLocation &loc, const PathPattern &p) const;
+	bool hasFileEntry (clang::SourceLocation &loc) const;
+
 	std::shared_ptr<SymbolTable>	 _syms;
-	clang::ASTContext		*_ast;
+	clang::CompilerInstance		&_c;
+	clang::ASTContext		&_ast;
 	clang::SourceManager		&_srcManager;
 };
 
@@ -88,7 +97,7 @@ public:
 	    _state(state)
 	{}
 
-	virtual bool VisitDeclRefExpr (clang::DeclRefExpr *decl);
+	bool VisitDeclRefExpr (clang::DeclRefExpr *decl);
 
 private:
 	VisitorState _state;

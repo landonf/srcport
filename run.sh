@@ -51,7 +51,7 @@ CFLAGS="-I${KERNOBJS} -I${SRCROOT}/sys -I${SRCROOT}/sys/sys -fno-builtin -nostdi
 
 cd "${SRCROOT}/sys/dev/bwn" || exit 1
 
-${BWN_DEPS} ${BWN_SRCS} -- ${CFLAGS}
+${BWN_DEPS} -host-path="${SRCROOT}/sys/dev/siba" -src-path="${OBJDIR}" -src-path="${SRCROOT}" ${BWN_SRCS} -- ${CFLAGS}
 RET=$?
 echo "Done"
 

@@ -47,8 +47,8 @@ class Project {
 public:
     Project (PathPattern &&sourcePaths, PathPattern &&hostPaths = PathPattern()) : _sourcePaths(std::move(sourcePaths)), _hostPaths(std::move(hostPaths)) {}
     
-    const PathPattern &hostPaths () { return _hostPaths; }
-    const PathPattern &sourcePaths () { return _sourcePaths; }
+    const PathPattern &hostPaths () const { return _hostPaths; }
+    const PathPattern &sourcePaths () const { return _sourcePaths; }
 
 private:
     PathPattern _sourcePaths;

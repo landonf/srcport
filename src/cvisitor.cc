@@ -29,21 +29,102 @@
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD$");
 
+#include <unordered_set>
+
 #include "cvisitor.hh"
 
+#include <clang/Index/USRGeneration.h>
+
 using namespace clang;
+using namespace clang::index;
 using namespace std;
+
+bool
+VisitorState::hasFileEntry (SourceLocation &loc) const
+{
+	if (loc.isInvalid())
+		return (false);
+
+	const auto &fid = _srcManager.getFileID(loc);
+	if (fid.isInvalid())
+		return (false);
+
+	auto fentry = _srcManager.getFileEntryForID(fid);
+	return (fentry != NULL);
+};
+
+bool
+VisitorState::locMatches (clang::SourceLocation &loc, const PathPattern &p) const
+{
+	if (!loc.isValid())
+		return (false);
+
+	auto fid = _srcManager.getFileID(loc);
+	if (fid.isInvalid())
+		return (false);
+
+	auto fentry = _srcManager.getFileEntryForID(fid);
+	if (fentry == NULL)
+		return (false);
+
+	return (p.match(fentry->getName()));
+}
+
+/**
+ * Returns true if this is a symbol reference that 1) occurs in the sources
+ * to be ported, and 2) references a symbol defined by a host path.
+ */
+bool
+VisitorState::isHostRef (clang::DeclRefExpr *ref) const
+{
+	/* Must be found within a source path */
+	auto rloc = ref->getLocation();
+	if (!locMatches(rloc, _syms->project().sourcePaths()))
+		return (false);
+
+	/* Must reference a symbol defined in a host path */
+	auto target = ref->getFoundDecl()->getCanonicalDecl();
+	auto tloc = target->getLocation();
+
+	/* Track single-level macro expansion */
+	if (!hasFileEntry(tloc) && tloc.isMacroID())
+		tloc = _ast.getFullLoc(_srcManager.getExpansionLoc(tloc));
+
+	/* Explicit host path match */
+	if (locMatches(tloc, _syms->project().hostPaths()))
+		return (true);
+
+	/* Otherwise, exclude if source path */
+	if (locMatches(tloc, _syms->project().sourcePaths()))
+		return (false);
+
+	/* Assume host symbol ref */
+	return (true);
+}
+
+// XXX temporary
+static unordered_set<string> seen;
 
 bool
 SourcePortASTVisitor::VisitDeclRefExpr (clang::DeclRefExpr *decl)
 {
-	const auto &loc = _state.ast()->getFullLoc(decl->getLocStart());
-	if (!loc.isValid())
+	SmallString<255>	sbuf;
+	string			usr;
+
+	if (!_state.isHostRef(decl))
 		return (true);
 
-#if 0
-	const FileEntry *fent = _smgr.getFileEntryForID(_smgr.getFileID(loc));
-#endif
+	if (generateUSRForDecl(decl->getDecl()->getCanonicalDecl(), sbuf))
+		return (true);
+
+	usr = sbuf.str();
+	if (seen.count(usr) > 0)
+		return (true);
+	else
+		seen.emplace(usr);
+
+	llvm::outs() << usr << "\n";
+
 
 	return (true);
 };

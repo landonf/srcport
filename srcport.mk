@@ -31,11 +31,26 @@ CFLAGS+=	-pthread \
 LDFLAGS+=	${LLVM_LDFLAGS}
 
 LDADD+=		-lc++ \
-		-lclangTooling -lclangFrontendTool -lclangFrontend \
-		-lclangDriver -lclangSerialization -lclangCodeGen \
-		-lclangParse -lclangSema -lclangStaticAnalyzerFrontend \
-		-lclangStaticAnalyzerCheckers -lclangStaticAnalyzerCore \
-		-lclangAnalysis -lclangARCMigrate -lclangRewriteFrontend \
-		-lclangRewrite -lclangEdit -lclangAST -lclangASTMatchers \
-		-lclangLex -lclangBasic -lclang \
+		-lclangTooling \
+		-lclangFrontendTool \
+		-lclangFrontend \
+		-lclangIndex \
+		-lclangDriver \
+		-lclangSerialization \
+		-lclangCodeGen \
+		-lclangParse \
+		-lclangSema \
+		-lclangStaticAnalyzerFrontend \
+		-lclangStaticAnalyzerCheckers \
+		-lclangStaticAnalyzerCore \
+		-lclangAnalysis \
+		-lclangARCMigrate \
+		-lclangRewriteFrontend \
+		-lclangRewrite \
+		-lclangEdit \
+		-lclangAST \
+		-lclangASTMatchers \
+		-lclangLex \
+		-lclangBasic \
+		-lclang \
 		${LLVM_LIBS}

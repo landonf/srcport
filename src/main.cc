@@ -75,10 +75,10 @@ public:
 	virtual unique_ptr<clang::ASTConsumer>
 	CreateASTConsumer(clang::CompilerInstance &c, llvm::StringRef inFile)
 	{
-		llvm::outs() << "Processing: " << inFile << "\n";
+		llvm::outs() << "Processing " << inFile << "\n";
 
 		return unique_ptr<clang::ASTConsumer>(
-		    new SourcePortASTConsumer(VisitorState(_syms, &c.getASTContext())));
+		    new SourcePortASTConsumer(VisitorState(_syms, c)));
 	}
 private:
 	shared_ptr<SymbolTable> _syms;
@@ -106,7 +106,12 @@ int main(int argc, const char **argv) {
 	CommonOptionsParser opts(argc, argv, PortToolCategory);
 	ClangTool tool(opts.getCompilations(), opts.getSourcePathList());
 
-	
+	/* We need preprocessing information to track defines properly */
+	tool.appendArgumentsAdjuster(getInsertArgumentAdjuster(
+	    {"-Xclang", "-detailed-preprocessing-record"},
+	    ArgumentInsertPosition::END)
+	);
+
 	auto syms = make_shared<SymbolTable>(
 	    Project(PathPattern(*&SourcePaths), PathPattern(*&HostPaths))
 	);
