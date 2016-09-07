@@ -1,6 +1,7 @@
 .PATH: ${.CURDIR}/src
 
-SRCS+=		project.cpp
+SRCS+=		paths.cpp \
+		project.cpp
 
 CFLAGS_WARN?=	-Wall -Werror -Wextra \
 		-Wno-unused-parameter \
@@ -13,17 +14,17 @@ LLVM_CFLAGS!=	${LLVM_CFG} --cflags
 LLVM_LDFLAGS!=	${LLVM_CFG} --ldflags
 LLVM_LIBS!=	${LLVM_CFG} --libs --system-libs
 
-FTL_CXXFLAGS=	-isystem ${.CURDIR}/dependencies/ftl
+FTL_CFLAGS=	-isystem ${.CURDIR}/dependencies/ftl
 
-PLCPP_CXXFLAGS=	-isystem ${.CURDIR}/dependencies/plstdcpp
+PLCPP_CFLAGS=	-isystem ${.CURDIR}/dependencies/plstdcpp
 
-CXXFLAGS+=	${LLVM_CXXFLAGS} \
-		${FTL_CXXFLAGS} \
-		${PLCPP_CXXFLAGS}
+CXXFLAGS+=	${LLVM_CXXFLAGS}
 
 CFLAGS+=	-pthread \
 		${LLVM_CFLAGS} \
-		${CFLAGS_WARN}
+		${CFLAGS_WARN} \
+		${FTL_CFLAGS} \
+		${PLCPP_CFLAGS}
 
 LDFLAGS+=	${LLVM_LDFLAGS}
 

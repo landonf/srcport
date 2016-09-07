@@ -24,9 +24,70 @@
  * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
  * THE POSSIBILITY OF SUCH DAMAGES.
+ * 
+ * $FreeBSD$
  */
 
-#include <sys/cdefs.h>
-__FBSDID("$FreeBSD$");
+#ifndef _SRCPORT_PATHS_H_
+#define _SRCPORT_PATHS_H_
 
-#include "project.hpp"
+#include <string>
+#include <vector>
+
+#include <ftl/functional.h>
+#include <ftl/vector.h>
+#include <ftl/sum_type.h>
+
+#include "error.hpp"
+#include "result.h"
+
+/**
+ * File system path.
+ */
+class Path {
+public:
+	using size_type = size_t;
+
+	explicit Path (const std::string &string);
+
+	explicit Path (const std::vector<std::string> &components);
+
+	/**
+	 * Return the path's string value.
+	 */
+	const std::string &stringValue () const {
+		return _str;
+	}
+
+
+	bool inNormalForm () const;
+	std::vector<std::string> split (bool normalize = true) const;
+	Path normalize () const;
+	result<Path> resolve () const;
+
+	bool hasPrefix (const Path &prefix) const;
+
+	size_type size () { return (_size); }
+
+	bool operator== (const Path &other) const;
+	bool operator!= (const Path &other) const;
+
+private:
+	void parse_path ();
+
+	std::string	_str;
+	size_type	_size;
+	bool		_normalForm;
+};
+
+#if 0
+/**
+ * A set of path prefix matches.
+ */
+class PathMatch {
+private:
+	std::vector<Path> _prefixes;
+};
+#endif
+
+#endif /* _SRCPORT_PATHS_H_ */

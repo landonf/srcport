@@ -24,9 +24,19 @@
  * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
  * THE POSSIBILITY OF SUCH DAMAGES.
+ * 
+ * $FreeBSD$
  */
 
-#include <sys/cdefs.h>
-__FBSDID("$FreeBSD$");
+#ifndef _SRCPORT_RESULT_H_
+#define _SRCPORT_RESULT_H_
 
-#include "project.hpp"
+#include <ftl/sum_type.h>
+
+#include "error.hpp"
+
+/** Disjoint union representing either an Error, or a valid result of
+ *  type @p T */
+template<typename T> using result = ftl::sum_type<Error, T>;
+
+#endif /* _SRCPORT_RESULT_H_ */

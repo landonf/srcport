@@ -24,9 +24,36 @@
  * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
  * THE POSSIBILITY OF SUCH DAMAGES.
+ * 
+ * $FreeBSD$
  */
 
-#include <sys/cdefs.h>
-__FBSDID("$FreeBSD$");
+#ifndef _SRCPORT_ERROR_H_
+#define _SRCPORT_ERROR_H_
 
-#include "project.hpp"
+#include <cstring>
+
+#include <ftl/sum_type.h>
+
+#include "record_type.hpp"
+
+/**
+ * An error representation providing a descriptive message and UNIX
+ * error code.
+ */
+class Error {
+public:
+	/**
+	 * Construct a new Error with the given UNIX error code and
+	 * standard sterror() message.
+	 */
+	Error (int err) : Error(strerror(err), err) {}
+
+	PL_RECORD_FIELDS(Error,
+		(std::string,	message),
+		(int,		error)
+	)
+};
+
+
+#endif /* _SRCPORT_ERROR_H_ */

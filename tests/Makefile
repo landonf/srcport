@@ -6,6 +6,7 @@ CFLAGS=		-I${.CURDIR}/../src \
 		-I${.CURDIR}/dependencies/catch
 
 SRCS=		tests.cpp \
+		paths_tests.cpp \
 		project_tests.cpp
 
 test: ${PROG_CXX}
