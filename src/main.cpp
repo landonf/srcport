@@ -52,8 +52,11 @@ using namespace std;
 static llvm::cl::OptionCategory PortToolCategory("port options");
 static cl::extrahelp CommonHelp(CommonOptionsParser::HelpMessage);
 
-static cl::list<string> HostPaths("host-path", cl::cat(PortToolCategory), cl::desc("Mark all definitions vended within this directory or file as unavailable on the target system"));
-static cl::list<string> SourcePaths("src-path", cl::cat(PortToolCategory), cl::desc("Perform portability analysis within this directory or source file"));
+static cl::list<string> HostPaths("host-path", cl::cat(PortToolCategory),
+      cl::desc("Mark all definitions vended within this directory or file as unavailable on the target system"));
+
+static cl::list<string> SourcePaths("src-path", cl::cat(PortToolCategory),
+    cl::desc("Perform portability analysis within this directory or source file"));
 
 class PortabilityVisitor: public RecursiveASTVisitor<PortabilityVisitor> {
 public:
@@ -83,7 +86,6 @@ public:
 	virtual void HandleTranslationUnit(clang::ASTContext &ctx) {
 		_visitor.TraverseDecl(ctx.getTranslationUnitDecl());
 	}
-
 private:
 	PortabilityVisitor _visitor;
 };
