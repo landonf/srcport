@@ -1,11 +1,13 @@
 .PATH: ${.CURDIR}/src
 
-SRCS+=		paths.cc \
+SRCS+=		cvisitor.cc \
+		paths.cc \
 		project.cc
 
 CFLAGS_WARN?=	-Wall -Werror -Wextra \
 		-Wno-unused-parameter \
-		-Wno-gnu-zero-variadic-macro-arguments
+		-Wno-gnu-zero-variadic-macro-arguments \
+		-Wno-covered-switch-default
 
 LLVM_VER?=	38
 LLVM_CFG=	llvm-config${LLVM_VER}
@@ -14,17 +16,17 @@ LLVM_CFLAGS!=	${LLVM_CFG} --cflags
 LLVM_LDFLAGS!=	${LLVM_CFG} --ldflags
 LLVM_LIBS!=	${LLVM_CFG} --libs --system-libs
 
-FTL_CFLAGS=	-isystem ${.CURDIR}/dependencies/ftl
+FTL_CFLAGS=	-I${.CURDIR}/dependencies/ftl
+PLCPP_CFLAGS=	-I${.CURDIR}/dependencies/plstdcpp
 
-PLCPP_CFLAGS=	-isystem ${.CURDIR}/dependencies/plstdcpp
-
-CXXFLAGS+=	${LLVM_CXXFLAGS}
+CXXFLAGS+=	${LLVM_CXXFLAGS} \
+		${CFLAGS_WARN}
 
 CFLAGS+=	-pthread \
 		${LLVM_CFLAGS} \
-		${CFLAGS_WARN} \
 		${FTL_CFLAGS} \
-		${PLCPP_CFLAGS}
+		${PLCPP_CFLAGS} \
+		${CFLAGS_WARN}
 
 LDFLAGS+=	${LLVM_LDFLAGS}
 

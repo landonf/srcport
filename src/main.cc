@@ -33,14 +33,12 @@ __FBSDID("$FreeBSD$");
 #include "clang/Frontend/FrontendActions.h"
 #include "clang/Frontend/CompilerInstance.h"
 
-#include "clang/AST/ASTConsumer.h"
-#include "clang/AST/RecursiveASTVisitor.h"
-
 #include "clang/Tooling/Tooling.h"
 #include "clang/Tooling/CommonOptionsParser.h"
 
 #include "llvm/Support/CommandLine.h"
 
+#include "cvisitor.hh"
 #include "project.hh"
 
 using namespace clang;
@@ -58,70 +56,60 @@ static cl::list<string> HostPaths("host-path", cl::cat(PortToolCategory),
 static cl::list<string> SourcePaths("src-path", cl::cat(PortToolCategory),
     cl::desc("Perform portability analysis within this directory or source file"));
 
-class PortabilityVisitor: public RecursiveASTVisitor<PortabilityVisitor> {
+
+class SourcePortASTConsumer : public clang::ASTConsumer {
 public:
-	explicit PortabilityVisitor (shared_ptr<Project> &proj, ASTContext *ctx) : _proj(proj), _ctx(ctx), _smgr(ctx->getSourceManager())
-	{}
-	
-	virtual bool VisitDeclRefExpr (DeclRefExpr *decl) {
-		const auto &loc = _ctx->getFullLoc(decl->getLocStart());
-		if (!loc.isValid())
-			return (true);
-
-		const FileEntry *fent = _smgr.getFileEntryForID(_smgr.getFileID(loc));
-		
-		return (true);
-	};
-
-private:
-	shared_ptr<Project> _proj;
-	ASTContext *_ctx;
-	SourceManager &_smgr;
-};
-
-class PortabilityConsumer : public clang::ASTConsumer {
-public:
-	explicit PortabilityConsumer (shared_ptr<Project> &proj, ASTContext *ctx) : _visitor(proj, ctx) {}
-
+	explicit SourcePortASTConsumer (VisitorState &&state) : _visitor(state) {}
 	virtual void HandleTranslationUnit(clang::ASTContext &ctx) {
 		_visitor.TraverseDecl(ctx.getTranslationUnitDecl());
 	}
+
 private:
-	PortabilityVisitor _visitor;
+	SourcePortASTVisitor _visitor;
 };
 
-class PortabilityAction : public clang::ASTFrontendAction {
+class SourcePortFrontendAction : public clang::ASTFrontendAction {
 public:
-	PortabilityAction (shared_ptr<Project> &proj) : _proj(proj) {}
+	SourcePortFrontendAction (shared_ptr<SymbolTable> &syms) : _syms(syms) {}
 
-	virtual unique_ptr<clang::ASTConsumer> CreateASTConsumer(clang::CompilerInstance &c, llvm::StringRef inFile) {
-		llvm::outs() << "In file: " << inFile << "\n";
-		return unique_ptr<clang::ASTConsumer>(new PortabilityConsumer(_proj, &c.getASTContext()));
+	virtual unique_ptr<clang::ASTConsumer>
+	CreateASTConsumer(clang::CompilerInstance &c, llvm::StringRef inFile)
+	{
+		llvm::outs() << "Processing: " << inFile << "\n";
+
+		return unique_ptr<clang::ASTConsumer>(
+		    new SourcePortASTConsumer(VisitorState(_syms, &c.getASTContext())));
 	}
 private:
-	shared_ptr<Project> _proj;
+	shared_ptr<SymbolTable> _syms;
 };
 
+unique_ptr<FrontendActionFactory> newFrontendAnalysisActionFactory(shared_ptr<SymbolTable> &syms) {
+	class SimpleFrontendActionFactory : public FrontendActionFactory {
+	public:
+		SimpleFrontendActionFactory(shared_ptr<SymbolTable> &syms) : _syms(syms) {}
 
-unique_ptr<FrontendActionFactory> newFrontendAnalysisActionFactory(shared_ptr<Project> &proj) {
-  class SimpleFrontendActionFactory : public FrontendActionFactory {
-  public:
-	  SimpleFrontendActionFactory(shared_ptr<Project> &proj) : _proj(proj) {}
+		clang::FrontendAction *
+		create() override
+		{
+			return (new SourcePortFrontendAction(_syms));
+		}
+		  
+	private:
+		  shared_ptr<SymbolTable> _syms;
+	};
 
-	  clang::FrontendAction *create() override { return new PortabilityAction(_proj); }
-	  
-  private:
-	  shared_ptr<Project> _proj;
-  };
-
-  return unique_ptr<FrontendActionFactory>(new SimpleFrontendActionFactory(proj));
+	return unique_ptr<FrontendActionFactory>(new SimpleFrontendActionFactory(syms));
 }
-
 
 int main(int argc, const char **argv) {
 	CommonOptionsParser opts(argc, argv, PortToolCategory);
 	ClangTool tool(opts.getCompilations(), opts.getSourcePathList());
 
-	auto proj = make_shared<Project>(*&SourcePaths, *&HostPaths);
-	return (tool.run(newFrontendAnalysisActionFactory(proj).get()));
+	
+	auto syms = make_shared<SymbolTable>(
+	    Project(PathPattern(*&SourcePaths), PathPattern(*&HostPaths))
+	);
+
+	return (tool.run(newFrontendAnalysisActionFactory(syms).get()));
 }
