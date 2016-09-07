@@ -77,19 +77,21 @@ VisitorState::locMatches (clang::SourceLocation &loc, const PathPattern &p) cons
 bool
 VisitorState::isHostRef (clang::DeclRefExpr *ref) const
 {
-	/* Must be found within a source path */
-	auto rloc = ref->getLocation();
-	if (!locMatches(rloc, _syms->project().sourcePaths()))
-		return (false);
+	SourceLocation	 usedAt, definedAt;
+	Decl		*target;
 
-	/* Must reference a symbol defined in a host path */
-	auto target = ref->getFoundDecl()->getCanonicalDecl();
-	auto tloc = target->getLocation();
+	usedAt = ref->getLocation();
+
+	target = ref->getFoundDecl()->getCanonicalDecl();
+	definedAt = target->getLocation();
 
 	/* Track single-level macro expansion */
-	if (!hasFileEntry(tloc) && tloc.isMacroID())
-		tloc = _ast.getFullLoc(_srcManager.getExpansionLoc(tloc));
+	if (!hasFileEntry(definedAt) && definedAt.isMacroID())
+		definedAt = _srcManager.getExpansionLoc(definedAt);
 
+	return (isHostRef(usedAt, definedAt));
+
+#if 0
 	/* Explicit host path match */
 	if (locMatches(tloc, _syms->project().hostPaths()))
 		return (true);
@@ -100,10 +102,73 @@ VisitorState::isHostRef (clang::DeclRefExpr *ref) const
 
 	/* Assume host symbol ref */
 	return (true);
+#endif
 }
+
+/**
+ * Return true if @p usedAt falls within defined source paths, and @p definedAt
+ * falls within defined host paths.
+ */
+bool
+VisitorState::isHostRef (SourceLocation usedAt, SourceLocation definedAt) const
+{
+	if (usedAt.isInvalid() || definedAt.isInvalid())
+		return (false);
+
+	/* The use location must be within our defined source paths,
+	 * but not explicitly excluded by a host path */
+	if (!locMatches(usedAt, _syms->project().sourcePaths()))
+		return (false);
+	
+	if (locMatches(usedAt, _syms->project().hostPaths()))
+		return (false);
+
+	/* The definition location must be within defined host path */
+	if (!locMatches(definedAt, _syms->project().hostPaths()))
+		return (false);
+
+	return (true);
+}
+
+/**
+ * Return true if @p usedAt falls within defined source paths, and is defined
+ * within a host path.
+ */
+bool
+VisitorState::isHostRef (SourceLocation loc) const
+{
+	SourceLocation usedAt;
+	SourceLocation definedAt;
+
+	if (loc.isInvalid())
+		return (false);
+
+	if (loc.isMacroID()) {
+		definedAt = _srcManager.getSpellingLoc(loc);
+		usedAt = _srcManager.getExpansionLoc(loc);
+	} else {
+		definedAt = _srcManager.getSpellingLoc(loc);
+		usedAt = loc;
+	}
+
+	return (isHostRef(usedAt, definedAt));
+}
+
 
 // XXX temporary
 static unordered_set<string> seen;
+
+bool
+SourcePortASTVisitor::VisitStmt(Stmt *stmt)
+{
+	if (!_state.isHostRef(stmt->getLocStart()))
+		return (true);
+
+	stmt->dump();
+
+//	stmt->dump();
+	return (true);
+}
 
 bool
 SourcePortASTVisitor::VisitDeclRefExpr (clang::DeclRefExpr *decl)
@@ -111,11 +176,9 @@ SourcePortASTVisitor::VisitDeclRefExpr (clang::DeclRefExpr *decl)
 	SmallString<255>	sbuf;
 	string			usr;
 
-	if (!_state.isHostRef(decl))
+	if (generateUSRForDecl(decl->getDecl()->getCanonicalDecl(), sbuf)) {
 		return (true);
-
-	if (generateUSRForDecl(decl->getDecl()->getCanonicalDecl(), sbuf))
-		return (true);
+	}
 
 	usr = sbuf.str();
 	if (seen.count(usr) > 0)
@@ -123,8 +186,10 @@ SourcePortASTVisitor::VisitDeclRefExpr (clang::DeclRefExpr *decl)
 	else
 		seen.emplace(usr);
 
-	llvm::outs() << usr << "\n";
+	if (!_state.isHostRef(decl))
+		return (true);
 
+	llvm::outs() << usr << "\n";
 
 	return (true);
 };

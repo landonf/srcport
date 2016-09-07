@@ -70,6 +70,8 @@ public:
 	}
 
 	bool isHostRef (clang::DeclRefExpr *ref) const;
+	bool isHostRef (clang::SourceLocation usedAt, clang::SourceLocation definedAt) const;
+	bool isHostRef (clang::SourceLocation loc) const;
 
 	std::shared_ptr<SymbolTable> &syms () { return (_syms); }
 	clang::CompilerInstance &c () { return (_c); }
@@ -97,7 +99,11 @@ public:
 	    _state(state)
 	{}
 
+#if 0
+	bool VisitIntegerLiteral (clang::IntegerLiteral *lit);
+#endif
 	bool VisitDeclRefExpr (clang::DeclRefExpr *decl);
+	bool VisitStmt (clang::Stmt *stmt);
 
 private:
 	VisitorState _state;
