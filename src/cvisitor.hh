@@ -99,9 +99,6 @@ public:
 	    _state(state)
 	{}
 
-#if 0
-	bool VisitIntegerLiteral (clang::IntegerLiteral *lit);
-#endif
 	bool VisitDeclRefExpr (clang::DeclRefExpr *decl);
 	bool VisitStmt (clang::Stmt *stmt);
 

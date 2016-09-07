@@ -90,19 +90,6 @@ VisitorState::isHostRef (clang::DeclRefExpr *ref) const
 		definedAt = _srcManager.getExpansionLoc(definedAt);
 
 	return (isHostRef(usedAt, definedAt));
-
-#if 0
-	/* Explicit host path match */
-	if (locMatches(tloc, _syms->project().hostPaths()))
-		return (true);
-
-	/* Otherwise, exclude if source path */
-	if (locMatches(tloc, _syms->project().sourcePaths()))
-		return (false);
-
-	/* Assume host symbol ref */
-	return (true);
-#endif
 }
 
 /**
