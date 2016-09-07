@@ -84,6 +84,7 @@ private:
  */
 class PathPattern {
 public:
+	PathPattern () {};
 	PathPattern (std::initializer_list<std::string> &&prefix) : PathPattern(std::vector<std::string>(std::move(prefix))) {}
 	PathPattern (std::initializer_list<Path> &&prefix) : _prefixes(std::move(prefix)) {}
 
@@ -93,7 +94,8 @@ public:
 	/**
 	 * Return true if the pattern matches the given path.
 	 */
-	inline bool matches (const Path &path)
+	inline bool
+	match (const Path &path) const
 	{
 		/* TODO: We should probably build a match table from the normalized,
 		 * path prefixes, rather than performing brute-force matching */
@@ -104,9 +106,11 @@ public:
 
 		return (false);
 	}
-	
-	inline bool matches (std::string &&path) {
-		return (matches(Path(std::move(path))));
+
+	inline bool
+	match (std::string &&path) const
+	{
+		return (match(Path(std::move(path))));
 	}
 
 private:

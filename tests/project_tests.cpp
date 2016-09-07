@@ -33,14 +33,7 @@ __FBSDID("$FreeBSD$");
 
 #include "project.hpp"
 
-TEST_CASE("project paths", "[project]" ) {
-	const auto hostPaths = std::vector<Path> {
-		Path("/sys")
-	};
-	const auto portPaths = std::vector<Path> {
-		Path("/sys/dev/bwn")
-	};
-
-	Project proj { std::vector<Path>(), std::vector<Path>() };
-	REQUIRE(1 == 1);
+TEST_CASE("project") {
+	Project proj ({"/sys/dev/bwn"});
+	REQUIRE(proj.sourcePaths().match("/sys/dev/bwn/if_bwn.c"));
 }

@@ -39,41 +39,20 @@
 #include <ftl/sum_type.h>
 
 #include "error.hpp"
+#include "paths.h"
 
 template<typename T> using result = ftl::sum_type<Error, T>;
 
-class Path {
-public:
-	Path (const std::string &string) : _str(string) {}
-
-	const std::string &stringValue () { return _str; }
-
-private:
-	std::string _str;
-};
-
 class Project {
 public:
-    Project (const std::vector<std::string> &sourcePaths, const std::vector<std::string> &hostPaths) {
-        using ftl::operator%;
-        
-        const auto &toPath = [](const std::string &str) {
-            return Path(str);
-        };
-
-        _sourcePaths = toPath % sourcePaths;
-        _hostPaths = toPath % hostPaths;
-    }
+    Project (PathPattern &&sourcePaths, PathPattern &&hostPaths = PathPattern()) : _sourcePaths(std::move(sourcePaths)), _hostPaths(std::move(hostPaths)) {}
     
-    Project (const std::vector<Path> &sourcePaths, const std::vector<Path> &hostPaths) : _sourcePaths(sourcePaths), _hostPaths(hostPaths) {
-    }
-
-    const std::vector<Path> &hostPaths () { return _hostPaths; }
-    const std::vector<Path> &sourcePaths () { return _sourcePaths; }
+    const PathPattern &hostPaths () { return _hostPaths; }
+    const PathPattern &sourcePaths () { return _sourcePaths; }
 
 private:
-    std::vector<Path> _sourcePaths;
-    std::vector<Path> _hostPaths;
+    PathPattern _sourcePaths;
+    PathPattern _hostPaths;
 };
 
 #endif /* _SRCPORT_PROJECT_HPP_ */

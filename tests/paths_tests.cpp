@@ -47,11 +47,11 @@ TEST_CASE("path matching") {
 	GIVEN("a prefix pattern") {
 		PathPattern pp({ "/foo", "/bar" });
 
-		REQUIRE(pp.matches("/foo/bar.c"));
-		REQUIRE(pp.matches("/bar/foo.c"));
-		REQUIRE(!pp.matches("/other/foo.c"));
+		REQUIRE(pp.match("/foo/bar.c"));
+		REQUIRE(pp.match("/bar/foo.c"));
+		REQUIRE(!pp.match("/other/foo.c"));
 		
-		REQUIRE(!pp.matches("/other/foo.c"));
+		REQUIRE(!pp.match("/other/foo.c"));
 	}
 }
 
