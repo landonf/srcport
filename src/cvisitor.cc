@@ -76,9 +76,41 @@ bool SourcePortASTVisitor::VisitDeclaratorDecl (clang::DeclaratorDecl *decl)
 	return (true);
 }
 
+bool
+SourcePortASTVisitor::TraverseCallExpr (clang::CallExpr *call)
+{
+	clang::CallExpr	*prev;
+	bool		 result;
+
+
+	prev = _inCall;
+	_inCall = call;
+
+	result = RecursiveASTVisitor::TraverseCallExpr(call);
+
+	_inCall = prev;
+
+	return (result);
+}
 
 bool
-SourcePortASTVisitor::VisitStmt(Stmt *stmt)
+SourcePortASTVisitor::TraverseFunctionDecl (clang::FunctionDecl *func)
+{
+	clang::FunctionDecl	*prev;
+	bool			 result;
+
+	prev = _inFunc;
+	_inFunc = func;
+
+	result = RecursiveASTVisitor::TraverseFunctionDecl(func);
+
+	_inFunc = prev;
+
+	return (result);
+}
+
+bool
+SourcePortASTVisitor::VisitStmt (Stmt *stmt)
 {
 	SourceLocation		usedAt;
 	SmallString<255>	sbuf;
@@ -139,7 +171,7 @@ SourcePortASTVisitor::VisitDeclRefExpr (clang::DeclRefExpr *decl)
 	SmallString<255>	sbuf;
 	string			usr;
 
-	if (generateUSRForDecl(decl->getDecl()->getCanonicalDecl(), sbuf)) {
+	if (generateUSRForDecl(decl->getFoundDecl()->getCanonicalDecl(), sbuf)) {
 		return (true);
 	}
 
@@ -153,6 +185,11 @@ SourcePortASTVisitor::VisitDeclRefExpr (clang::DeclRefExpr *decl)
 		return (true);
 
 	llvm::outs() << usr << "\n";
+
+	if (_inFunc != nullptr) {
+		auto *id = _inFunc->getIdentifier();
+		llvm::outs() << "IN: " << id->getName() << "\n";
+	}
 
 	return (true);
 };

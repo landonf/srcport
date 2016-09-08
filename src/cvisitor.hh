@@ -51,11 +51,15 @@ public:
 	    _state(state)
 	{}
 
+	bool TraverseCallExpr (clang::CallExpr *call);
+	bool TraverseFunctionDecl (clang::FunctionDecl *decl);
 	bool VisitDeclaratorDecl (clang::DeclaratorDecl *decl);
 	bool VisitDeclRefExpr (clang::DeclRefExpr *decl);
 	bool VisitStmt (clang::Stmt *stmt);
 
 private:
+	clang::CallExpr *_inCall = nullptr;
+	clang::FunctionDecl *_inFunc = nullptr;
 	VisitorState _state;
 };
 
