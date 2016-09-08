@@ -118,4 +118,14 @@ private:
 	std::vector<Path> _prefixes;
 };
 
+namespace std {
+	template<> struct hash<Path> {
+		std::size_t
+		operator()(Path const &p) const 
+		{
+			return (hash<std::string>()(p.stringValue()));
+		}
+	};
+} /* namespace std */
+
 #endif /* _SRCPORT_PATHS_HH_ */

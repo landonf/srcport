@@ -31,6 +31,8 @@
 #ifndef _SRCPORT_SYMBOL_TABLE_HH_
 #define _SRCPORT_SYMBOL_TABLE_HH_
 
+#include <functional>
+#include <string>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -47,8 +49,11 @@
 
 namespace symtab {
 
+using SymbolDecl = ftl::sum_type<clang::NamedDecl *, clang::MacroInfo *>;
+using SymbolUseExpr = ftl::sum_type<clang::DeclRefExpr *, clang::Stmt *>;
+
 using StrRef = std::shared_ptr<const std::string>;
-using PathRef = std::shared_ptr<const Path>;
+using PathRef = std::shared_ptr<Path>;
 using SymParent = ftl::maybe<clang::FunctionDecl *>;
 
 PL_RECORD_STRUCT(Location,
@@ -57,40 +62,52 @@ PL_RECORD_STRUCT(Location,
 	(unsigned,	column)
 );
 
-using LocRef = std::shared_ptr<const Location>;
-
-PL_RECORD_STRUCT(LangSymbol,
-	(StrRef,		name),
-	(clang::NamedDecl *,	decl),
-	(LocRef,		location),
-	(StrRef,		USR)
+PL_RECORD_STRUCT(Symbol,
+	(StrRef,	name),
+	(SymbolDecl,	decl),
+	(Location,	location),
+	(StrRef,	USR)
 );
 
-PL_RECORD_STRUCT(MacroSymbol,
-	(StrRef,		name),
-	(clang::MacroInfo *,	info),
-	(LocRef,		location),
-	(StrRef,		USR)
-);
-
-using Symbol = ftl::sum_type<LangSymbol, MacroSymbol>;
-using SymbolRef = std::shared_ptr<const Symbol>;
-
-PL_RECORD_STRUCT(LangUse,
-	(clang::DeclRefExpr *,	expr),
+PL_RECORD_STRUCT(SymbolUse,
+	(SymbolUseExpr,		expr),
 	(SymParent,		parent),
-	(LocRef,		location),
+	(Location,		location),
 	(StrRef,		USR)
 );
 
-PL_RECORD_STRUCT(MacroUse,
-	(clang::Stmt *,		expr),
-	(SymParent,		parent),
-	(LocRef,		location),
-	(StrRef,		USR)
-);
+} /* namespace symtab */
 
-using SymbolUse = ftl::sum_type<LangUse, MacroUse>;
+
+namespace std {
+	template<> struct hash<symtab::Location> {
+		std::size_t
+		operator()(symtab::Location const &l) const 
+		{
+			std::size_t h1 = hash<Path>()(*l.path());
+			std::size_t h2 = l.line();
+			return h1 ^ (h2 << 1);
+		}
+	};
+
+	template<> struct hash<symtab::Symbol> {
+		std::size_t
+		operator()(symtab::Symbol const &s) const 
+		{
+			return (hash<string>()(*s.USR()));
+		}
+	};
+
+	template<> struct hash<symtab::SymbolUse> {
+		std::size_t
+		operator()(symtab::SymbolUse const &u) const 
+		{
+			return (hash<symtab::Location>()(u.location()));
+		}
+	};
+} /* namespace std */
+
+namespace symtab {
 
 class SymbolTable {
 public:
@@ -106,21 +123,34 @@ public:
 	{
 		return (_proj);
 	}
-private:
-	/* Map of symbols to their enclosing path. */
-	std::unordered_multimap<PathRef, SymbolRef>	_syms;
 
-	/** Map of paths to associated symbol uses */
-	std::unordered_multimap<PathRef, SymbolUse>	_uses;
+	ftl::maybe<const Symbol *> lookupUSR (const StrRef &USR) const;
+	bool hasUSR (const StrRef &USR) const;
+
+	void addSymbol (const Symbol &symbol);
+	void addSymbolUse (const SymbolUse &use);
+
+private:
+	/* All defined symbols. */
+	std::unordered_set<Symbol>				_syms;
+
+	/** Map of paths to associated symbols */
+	std::unordered_multimap<PathRef, const Symbol&>		_syms_path;
 
 	/** USR symbol lookup table */
-	std::unordered_map<StrRef, SymbolRef>		_symtab;
+	std::unordered_map<StrRef, const Symbol&>		_syms_usr;
+
+	/** All used symbols */
+	std::unordered_set<SymbolUse>				_uses;
+
+	/** Map of paths to associated symbol uses */
+	std::unordered_multimap<PathRef, const SymbolUse&>	_uses_path;
 
 	/** USR symbol use lookup table */
-	std::unordered_map<StrRef, SymbolRef>		_usetab;
+	std::unordered_multimap<StrRef, const SymbolUse&>	_uses_usr;
 
 	/** Project configuration */
-	Project						_proj;
+	Project							_proj;
 };
 
 } /* namespace symtab */
