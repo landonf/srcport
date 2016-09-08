@@ -40,6 +40,7 @@ __FBSDID("$FreeBSD$");
 using namespace clang;
 using namespace clang::index;
 using namespace std;
+using namespace symtab;
 
 // XXX temporary
 static unordered_set<string> seen;
@@ -165,31 +166,77 @@ SourcePortASTVisitor::VisitStmt (Stmt *stmt)
 	return (true);
 }
 
+symtab::Location
+SourcePortASTVisitor::getLocation (const clang::SourceLocation &loc)
+{
+	unsigned line, column;
+
+	line = 0;
+	column = 0;
+
+	assert(loc.isValid());
+
+	const auto &smgr = _state.srcManager();
+	auto spellLoc = smgr.getSpellingLoc(loc);
+	auto locInfo = smgr.getDecomposedLoc(spellLoc);
+	auto fid = locInfo.first;
+	auto fileOffset = locInfo.second;
+
+	assert(fid.isValid());
+
+	auto file = smgr.getFileEntryForID(fid);
+	assert (file != NULL);
+
+	line = smgr.getLineNumber(fid, fileOffset);
+	column = smgr.getColumnNumber(fid, fileOffset);
+
+	auto path = _state.syms()->getPath(file->getName());
+	return (Location(path, line, column));
+}
+
 bool
 SourcePortASTVisitor::VisitDeclRefExpr (clang::DeclRefExpr *decl)
 {
 	SmallString<255>	sbuf;
-	string			usr;
-
-	if (generateUSRForDecl(decl->getFoundDecl()->getCanonicalDecl(), sbuf)) {
-		return (true);
-	}
-
-	usr = sbuf.str();
-	if (seen.count(usr) > 0)
-		return (true);
-	else
-		seen.emplace(usr);
+	shared_ptr<string>	usr, name;
 
 	if (!_state.isHostRef(decl))
 		return (true);
 
-	llvm::outs() << usr << "\n";
+	/* Generate USR */
+	auto target = decl->getFoundDecl();
+	if (generateUSRForDecl(target, sbuf))
+		return (true);
 
-	if (_inFunc != nullptr) {
-		auto *id = _inFunc->getIdentifier();
-		llvm::outs() << "IN: " << id->getName() << "\n";
-	}
+	usr = make_shared<string>(sbuf.str());
+
+	/* Fetch symbol name */
+	name = make_shared<string>(target->getName());
+
+	/* Register symbol use */
+	SymbolUseExpr useExpr { ftl::constructor<DeclRefExpr *>(), decl };
+	Location usedAt = getLocation(decl->getLocation());
+	SymParent parent = ftl::Nothing();
+	if (_inFunc != nullptr)
+		parent = ftl::just(_inFunc);
+
+	_state.syms()->addSymbolUse(SymbolUse(useExpr, parent, usedAt, usr));
+
+	/* If the symbol itself has previously been registered, nothing left
+	 * to do. */
+	if (_state.syms()->hasUSR(*usr))
+		return (true);
+
+	/* Track single-level macro expansion */
+	auto targetLoc = target->getLocation();
+	if (!_state.hasFileEntry(targetLoc) && targetLoc.isMacroID())
+		targetLoc = _state.srcManager().getExpansionLoc(targetLoc);
+
+	SymbolDecl symDecl { ftl::constructor<NamedDecl*>(), target };
+	Location definedAt = getLocation(targetLoc);
+
+	/* Register the symbol */
+	_state.syms()->addSymbol(Symbol(name, symDecl, definedAt, usr));
 
 	return (true);
 };

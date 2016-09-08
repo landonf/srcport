@@ -114,13 +114,17 @@ int main(int argc, const char **argv) {
 	    ArgumentInsertPosition::END)
 	);
 
-	auto syms = make_shared<SymbolTable>(
+	auto symtab = make_shared<SymbolTable>(
 	    Project(PathPattern(*&SourcePaths), PathPattern(*&HostPaths))
 	);
 
-	ret = tool.run(newFrontendAnalysisActionFactory(syms).get());
+	ret = tool.run(newFrontendAnalysisActionFactory(symtab).get());
 	if (ret != 0)
 		return (ret);
+
+	for (const auto &sym : symtab->getSymbols()) {
+		llvm::outs() << *sym.name() << "\n";
+	}
 
 	// TODO: make use of syms
 	printf("TODO\n");

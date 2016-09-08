@@ -53,6 +53,8 @@ public:
 	bool isSourceLoc (const clang::SourceLocation &loc) const;
 	bool isHostLoc (const clang::SourceLocation &loc) const;
 
+	bool hasFileEntry (const clang::SourceLocation &loc) const;
+
 	const clang::Decl *getTypeDecl (const clang::Type *t, const clang::TypeSourceInfo *info) const;
 
 	std::string descLoc (const clang::SourceLocation &loc);
@@ -65,7 +67,6 @@ public:
 
 private:
 	bool locMatches (const clang::SourceLocation &loc, const PathPattern &p) const;
-	bool hasFileEntry (const clang::SourceLocation &loc) const;
 
 	std::shared_ptr<symtab::SymbolTable>	 _syms;
 	clang::CompilerInstance			&_c;

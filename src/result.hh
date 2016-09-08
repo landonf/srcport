@@ -39,4 +39,26 @@
  *  type @p T */
 template<typename T> using result = ftl::sum_type<Error, T>;
 
+template<typename T> result<T> failed (const Error &error) {
+	return (result<T>{ftl::constructor<Error>(), error});
+}
+
+template<typename T> result<T>
+success (const T &value)
+{
+	return (result<T>{ftl::constructor<T>(), value});
+}
+
+template<typename T> result<T>
+success (T &&value)
+{
+	return (result<T>{ftl::constructor<T>(), std::move(value)});
+}
+
+template<typename T> result<T>
+failed (Error &&error)
+{
+	return (result<T>{ftl::constructor<Error>(), std::move(error) });
+}
+
 #endif /* _SRCPORT_RESULT_HH_ */

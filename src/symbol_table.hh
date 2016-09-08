@@ -52,7 +52,7 @@ namespace symtab {
 using SymbolDecl = ftl::sum_type<clang::NamedDecl *, clang::MacroInfo *>;
 using SymbolUseExpr = ftl::sum_type<clang::DeclRefExpr *, clang::Stmt *>;
 
-using StrRef = std::shared_ptr<const std::string>;
+using StrRef = std::shared_ptr<std::string>;
 using PathRef = std::shared_ptr<Path>;
 using SymParent = ftl::maybe<clang::FunctionDecl *>;
 
@@ -124,30 +124,52 @@ public:
 		return (_proj);
 	}
 
-	ftl::maybe<const Symbol *> lookupUSR (const StrRef &USR) const;
-	bool hasUSR (const StrRef &USR) const;
+	ftl::maybe<const Symbol *> lookupUSR (const std::string &USR) const;
+	bool hasUSR (const std::string &USR) const;
 
 	void addSymbol (const Symbol &symbol);
 	void addSymbolUse (const SymbolUse &use);
 
+	PathRef getPath (const std::string &strval);
+
+	const std::unordered_set<SymbolUse> &getSymbolUses () {
+		return (_uses);
+	}
+
+	const std::unordered_set<Symbol> &getSymbols () {
+		return (_syms);
+	}
 private:
-	/* All defined symbols. */
-	std::unordered_set<Symbol>				_syms;
-
-	/** Map of paths to associated symbols */
-	std::unordered_multimap<PathRef, const Symbol&>		_syms_path;
-
-	/** USR symbol lookup table */
-	std::unordered_map<StrRef, const Symbol&>		_syms_usr;
-
-	/** All used symbols */
+	/** All referenced symbols */
 	std::unordered_set<SymbolUse>				_uses;
 
-	/** Map of paths to associated symbol uses */
-	std::unordered_multimap<PathRef, const SymbolUse&>	_uses_path;
+	/** All defined symbols. */
+	std::unordered_set<Symbol>				_syms;
 
-	/** USR symbol use lookup table */
-	std::unordered_multimap<StrRef, const SymbolUse&>	_uses_usr;
+	/* Path cache lookup table */
+	std::unordered_map<
+		const std::string *, PathRef
+	> _path_cache;
+
+	/** Symbol file lookup table */
+	std::unordered_multimap<
+		const Path *, const Symbol *
+	> _syms_path;
+
+	/** Symbol USR lookup table */
+	std::unordered_map<
+		const std::string *, const Symbol *
+	> _syms_usr;
+
+	/** SymbolUse file lookup table */
+	std::unordered_multimap<
+		const Path *, const SymbolUse *
+	> _uses_path;
+
+	/** SymbolUse USR lookup table */
+	std::unordered_multimap<
+		const std::string *, const SymbolUse *
+	> _uses_usr;
 
 	/** Project configuration */
 	Project							_proj;

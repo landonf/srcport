@@ -58,6 +58,8 @@ public:
 	bool VisitStmt (clang::Stmt *stmt);
 
 private:
+	symtab::Location getLocation (const clang::SourceLocation &loc);
+
 	clang::CallExpr *_inCall = nullptr;
 	clang::FunctionDecl *_inFunc = nullptr;
 	VisitorState _state;
