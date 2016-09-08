@@ -30,6 +30,7 @@
 __FBSDID("$FreeBSD$");
 
 #include <unordered_set>
+#include <string>
 
 #include "cvisitor.hh"
 
@@ -40,7 +41,7 @@ using namespace clang::index;
 using namespace std;
 
 bool
-VisitorState::hasFileEntry (SourceLocation &loc) const
+VisitorState::hasFileEntry (const SourceLocation &loc) const
 {
 	if (loc.isInvalid())
 		return (false);
@@ -54,7 +55,7 @@ VisitorState::hasFileEntry (SourceLocation &loc) const
 };
 
 bool
-VisitorState::locMatches (clang::SourceLocation &loc, const PathPattern &p) const
+VisitorState::locMatches (const clang::SourceLocation &loc, const PathPattern &p) const
 {
 	if (!loc.isValid())
 		return (false);
@@ -141,9 +142,116 @@ VisitorState::isHostRef (SourceLocation loc) const
 	return (isHostRef(usedAt, definedAt));
 }
 
+bool
+VisitorState::isHostLoc (const SourceLocation &loc) const
+{
+	return (locMatches(loc, _syms->project().hostPaths()));
+}
+
+bool VisitorState::isSourceLoc (const SourceLocation &loc) const
+{
+	return (locMatches(loc, _syms->project().sourcePaths()));
+}
+
+
+string
+VisitorState::descLoc (const SourceLocation &loc)
+{
+	string		desc;
+	unsigned	line, column;
+
+	line = 0;
+	column = 0;
+
+	if (loc.isInvalid())
+		return ("<loc-invalid>:-1");
+
+	auto spellLoc = _srcManager.getSpellingLoc(loc);
+	auto locInfo = _srcManager.getDecomposedLoc(spellLoc);
+	auto fid = locInfo.first;
+	auto fileOffset = locInfo.second;
+
+	if (fid.isInvalid())
+		return ("<fid-invalid>:-1");
+
+	auto file = _srcManager.getFileEntryForID(fid);
+	if (file == NULL)
+		return ("<null-file>:-1");
+	
+	line = _srcManager.getLineNumber(fid, fileOffset);
+	column = _srcManager.getColumnNumber(fid, fileOffset);
+
+	desc = file->getName();
+	desc += ":" + to_string(line) + ":" + to_string(column);
+
+	return (desc);
+}
+
+
+void
+VisitorState::dumpLoc (const SourceLocation &loc)
+{
+	llvm::errs() << descLoc(loc) << "\n";
+}
+
+const Decl *
+VisitorState::getTypeDecl(const Type *t, const TypeSourceInfo *info) const
+{
+	if (const TagType *r = t->getAs<TagType>()) {
+		return (r->getDecl()->getCanonicalDecl());
+
+	} else if (const TypedefType *d = t->getAs<TypedefType>()) {
+		return (d->getDecl());
+
+	} else if (const PointerType *p = t->getAs<PointerType>()) {
+		return (getTypeDecl(p->getPointeeType().getTypePtr(), info));
+
+	} else if (t->isArrayType()) {
+		return (getTypeDecl(t->castAsArrayTypeUnsafe()->getElementType().getTypePtr(), info));
+
+	} else if (t->getAs<FunctionProtoType>()) {
+		/* nothing */
+		return (NULL);
+	} else if (t->isBuiltinType()) {
+		/* nothing */
+		return (NULL);
+	}
+
+	auto &diags = _ast.getDiagnostics();
+	unsigned diagID = diags.getCustomDiagID(DiagnosticsEngine::Error, "cannot analyze type");
+	auto errLoc = info->getTypeLoc().getUnqualifiedLoc();
+
+	diags.Report(errLoc.getLocStart(), diagID) << errLoc.getSourceRange();
+
+	return (NULL);
+}
+
 
 // XXX temporary
 static unordered_set<string> seen;
+
+bool SourcePortASTVisitor::VisitDeclaratorDecl (clang::DeclaratorDecl *decl)
+{	
+	const clang::Decl	*defn;
+	const clang::Type	*t;
+	
+
+	if (!_state.isSourceLoc(decl->getLocation()))
+		return (true);
+
+	t = decl->getType().getTypePtr();
+	defn = _state.getTypeDecl(t, decl->getTypeSourceInfo());
+	if (defn == nullptr)
+		return (true);
+
+	if (!_state.isHostRef(decl->getLocation(), defn->getLocation()))
+		return (true);
+
+	decl->dump();
+
+	return (true);
+}
+
 
 bool
 SourcePortASTVisitor::VisitStmt(Stmt *stmt)
@@ -153,7 +261,6 @@ SourcePortASTVisitor::VisitStmt(Stmt *stmt)
 
 	stmt->dump();
 
-//	stmt->dump();
 	return (true);
 }
 

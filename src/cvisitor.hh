@@ -73,14 +73,22 @@ public:
 	bool isHostRef (clang::SourceLocation usedAt, clang::SourceLocation definedAt) const;
 	bool isHostRef (clang::SourceLocation loc) const;
 
+	bool isSourceLoc (const clang::SourceLocation &loc) const;
+	bool isHostLoc (const clang::SourceLocation &loc) const;
+
+	const clang::Decl *getTypeDecl (const clang::Type *t, const clang::TypeSourceInfo *info) const;
+
+	std::string descLoc (const clang::SourceLocation &loc);
+	void dumpLoc (const clang::SourceLocation &loc);
+
 	std::shared_ptr<SymbolTable> &syms () { return (_syms); }
 	clang::CompilerInstance &c () { return (_c); }
 	clang::ASTContext &ast () { return (_ast); }
 	clang::SourceManager &srcManager () { return (_srcManager); }
 
 private:
-	bool locMatches (clang::SourceLocation &loc, const PathPattern &p) const;
-	bool hasFileEntry (clang::SourceLocation &loc) const;
+	bool locMatches (const clang::SourceLocation &loc, const PathPattern &p) const;
+	bool hasFileEntry (const clang::SourceLocation &loc) const;
 
 	std::shared_ptr<SymbolTable>	 _syms;
 	clang::CompilerInstance		&_c;
@@ -99,6 +107,7 @@ public:
 	    _state(state)
 	{}
 
+	bool VisitDeclaratorDecl (clang::DeclaratorDecl *decl);
 	bool VisitDeclRefExpr (clang::DeclRefExpr *decl);
 	bool VisitStmt (clang::Stmt *stmt);
 
