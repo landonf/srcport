@@ -164,7 +164,6 @@ VisitorState::descLoc (const SourceLocation &loc)
 	return (desc);
 }
 
-
 void
 VisitorState::dumpLoc (const SourceLocation &loc)
 {
@@ -203,7 +202,6 @@ VisitorState::getTypeDecl(const Type *t, const TypeSourceInfo *info) const
 	return (NULL);
 }
 
-
 // XXX temporary
 static unordered_set<string> seen;
 
@@ -211,7 +209,8 @@ bool SourcePortASTVisitor::VisitDeclaratorDecl (clang::DeclaratorDecl *decl)
 {	
 	const clang::Decl	*defn;
 	const clang::Type	*t;
-	
+	SmallString<255>	 sbuf;
+	string			 usr;
 
 	if (!_state.isSourceLoc(decl->getLocation()))
 		return (true);
@@ -224,7 +223,16 @@ bool SourcePortASTVisitor::VisitDeclaratorDecl (clang::DeclaratorDecl *decl)
 	if (!_state.isHostRef(decl->getLocation(), defn->getLocation()))
 		return (true);
 
-	decl->dump();
+	if (generateUSRForDecl(defn, sbuf))
+		return (true);
+
+	usr = sbuf.str();
+	if (seen.count(usr) > 0)
+		return (true);
+	else
+		seen.emplace(usr);
+
+	llvm::outs() << usr << "\n";
 
 	return (true);
 }
@@ -237,13 +245,11 @@ SourcePortASTVisitor::VisitStmt(Stmt *stmt)
 	SmallString<255>	sbuf;
 	string			usr;
 
-
 	const auto &loc = stmt->getLocStart();
 	if (loc.isInvalid())
 		return (true);
 	
 	const auto &definedAt = _state.srcManager().getSpellingLoc(loc);
-
 	if (loc.isMacroID())
 		usedAt = _state.srcManager().getExpansionLoc(loc);
 	else
@@ -255,6 +261,7 @@ SourcePortASTVisitor::VisitStmt(Stmt *stmt)
 	if (loc.isMacroID()) {
 		auto &cpp = _state.c().getPreprocessor();
 		auto mname = cpp.getImmediateMacroName(stmt->getLocStart());
+
 		auto *mid = cpp.getIdentifierInfo(mname);
 		MacroDefinition mdef = cpp.getMacroDefinitionAtLoc(mid, stmt->getLocStart());
 		MacroInfo *info = mdef.getMacroInfo();
@@ -262,9 +269,15 @@ SourcePortASTVisitor::VisitStmt(Stmt *stmt)
 		auto mrange = SourceRange(info->getDefinitionLoc(), info->getDefinitionEndLoc());
 		auto mrec = MacroDefinitionRecord(mid, mrange);
 
+		/* Skip argument expansion of our own macros */
+		if (_state.srcManager().isMacroArgExpansion(loc)) {
+			if (_state.isSourceLoc(mrange.getBegin()) && !_state.isHostLoc(mrange.getBegin()))
+				return (true);
+		}
+
 		if (generateUSRForMacro(&mrec, _state.srcManager(), sbuf))
 			return (true);
-		
+
 		usr = sbuf.str();
 		if (seen.count(usr) > 0)
 			return (true);
