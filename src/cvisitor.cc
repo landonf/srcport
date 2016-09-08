@@ -35,6 +35,7 @@ __FBSDID("$FreeBSD$");
 #include "cvisitor.hh"
 
 #include <clang/Index/USRGeneration.h>
+#include <clang/Lex/Preprocessor.h>
 
 using namespace clang;
 using namespace clang::index;
@@ -116,30 +117,6 @@ VisitorState::isHostRef (SourceLocation usedAt, SourceLocation definedAt) const
 		return (false);
 
 	return (true);
-}
-
-/**
- * Return true if @p usedAt falls within defined source paths, and is defined
- * within a host path.
- */
-bool
-VisitorState::isHostRef (SourceLocation loc) const
-{
-	SourceLocation usedAt;
-	SourceLocation definedAt;
-
-	if (loc.isInvalid())
-		return (false);
-
-	if (loc.isMacroID()) {
-		definedAt = _srcManager.getSpellingLoc(loc);
-		usedAt = _srcManager.getExpansionLoc(loc);
-	} else {
-		definedAt = _srcManager.getSpellingLoc(loc);
-		usedAt = loc;
-	}
-
-	return (isHostRef(usedAt, definedAt));
 }
 
 bool
@@ -256,10 +233,50 @@ bool SourcePortASTVisitor::VisitDeclaratorDecl (clang::DeclaratorDecl *decl)
 bool
 SourcePortASTVisitor::VisitStmt(Stmt *stmt)
 {
-	if (!_state.isHostRef(stmt->getLocStart()))
+	SourceLocation		usedAt;
+	SmallString<255>	sbuf;
+	string			usr;
+
+
+	const auto &loc = stmt->getLocStart();
+	if (loc.isInvalid())
+		return (true);
+	
+	const auto &definedAt = _state.srcManager().getSpellingLoc(loc);
+
+	if (loc.isMacroID())
+		usedAt = _state.srcManager().getExpansionLoc(loc);
+	else
+		usedAt = loc;
+
+	if (!_state.isHostRef(usedAt, definedAt))
 		return (true);
 
-	stmt->dump();
+	if (loc.isMacroID()) {
+		auto &cpp = _state.c().getPreprocessor();
+		auto mname = cpp.getImmediateMacroName(stmt->getLocStart());
+		auto *mid = cpp.getIdentifierInfo(mname);
+		MacroDefinition mdef = cpp.getMacroDefinitionAtLoc(mid, stmt->getLocStart());
+		MacroInfo *info = mdef.getMacroInfo();
+
+		auto mrange = SourceRange(info->getDefinitionLoc(), info->getDefinitionEndLoc());
+		auto mrec = MacroDefinitionRecord(mid, mrange);
+
+		if (generateUSRForMacro(&mrec, _state.srcManager(), sbuf))
+			return (true);
+		
+		usr = sbuf.str();
+		if (seen.count(usr) > 0)
+			return (true);
+		else
+			seen.emplace(usr);
+
+		llvm::outs() << usr << "\n";
+	} else {
+		auto &diags = _state.ast().getDiagnostics();
+		unsigned diagID = diags.getCustomDiagID(DiagnosticsEngine::Error, "unsupported statement");
+		diags.Report(loc, diagID) << stmt->getSourceRange();
+	}
 
 	return (true);
 }

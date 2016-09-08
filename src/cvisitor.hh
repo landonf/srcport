@@ -71,7 +71,6 @@ public:
 
 	bool isHostRef (clang::DeclRefExpr *ref) const;
 	bool isHostRef (clang::SourceLocation usedAt, clang::SourceLocation definedAt) const;
-	bool isHostRef (clang::SourceLocation loc) const;
 
 	bool isSourceLoc (const clang::SourceLocation &loc) const;
 	bool isHostLoc (const clang::SourceLocation &loc) const;
