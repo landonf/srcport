@@ -28,35 +28,50 @@
  * $FreeBSD$
  */
 
-#ifndef _SRCPORT_CVISITOR_HH_
-#define _SRCPORT_CVISITOR_HH_
+#ifndef _SRCPORT_CVISITOR_STATE_HH_
+#define _SRCPORT_CVISITOR_STATE_HH_
 
+#include <clang/Frontend/FrontendAction.h>
+#include <clang/Frontend/FrontendActions.h>
+#include <clang/Frontend/CompilerInstance.h>
 
-#include "clang/Frontend/FrontendAction.h"
-#include "clang/Frontend/FrontendActions.h"
-#include "clang/Frontend/CompilerInstance.h"
+#include <clang/AST/AST.h>
 
-#include "clang/AST/ASTConsumer.h"
-#include "clang/AST/RecursiveASTVisitor.h"
+#include "symbol_table.hh"
 
-#include "cvisitor_state.hh"
-
-class SourcePortASTVisitor: public clang::RecursiveASTVisitor<SourcePortASTVisitor> {
+class VisitorState {
 public:
-	explicit SourcePortASTVisitor (VisitorState &&state):
-	    _state(std::move(state))
-	{}
+	VisitorState (std::shared_ptr<SymbolTable> &syms, clang::CompilerInstance &c): 
+	    _syms(syms), _c(c), _ast(c.getASTContext()), _srcManager(_ast.getSourceManager())
+	{
+		assert(syms);
+	}
 
-	explicit SourcePortASTVisitor (const VisitorState &state):
-	    _state(state)
-	{}
+	bool isHostRef (clang::DeclRefExpr *ref) const;
+	bool isHostRef (clang::SourceLocation usedAt, clang::SourceLocation definedAt) const;
 
-	bool VisitDeclaratorDecl (clang::DeclaratorDecl *decl);
-	bool VisitDeclRefExpr (clang::DeclRefExpr *decl);
-	bool VisitStmt (clang::Stmt *stmt);
+	bool isSourceLoc (const clang::SourceLocation &loc) const;
+	bool isHostLoc (const clang::SourceLocation &loc) const;
+
+	const clang::Decl *getTypeDecl (const clang::Type *t, const clang::TypeSourceInfo *info) const;
+
+	std::string descLoc (const clang::SourceLocation &loc);
+	void dumpLoc (const clang::SourceLocation &loc);
+
+	std::shared_ptr<SymbolTable> &syms () { return (_syms); }
+	clang::CompilerInstance &c () { return (_c); }
+	clang::ASTContext &ast () { return (_ast); }
+	clang::SourceManager &srcManager () { return (_srcManager); }
 
 private:
-	VisitorState _state;
+	bool locMatches (const clang::SourceLocation &loc, const PathPattern &p) const;
+	bool hasFileEntry (const clang::SourceLocation &loc) const;
+
+	std::shared_ptr<SymbolTable>	 _syms;
+	clang::CompilerInstance		&_c;
+	clang::ASTContext		&_ast;
+	clang::SourceManager		&_srcManager;
 };
 
-#endif /* _SRCPORT_CVISITOR_HH_ */
+
+#endif /* _SRCPORT_CVISITOR_STATE_HH_ */

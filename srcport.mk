@@ -1,8 +1,10 @@
 .PATH: ${.CURDIR}/src
 
 SRCS+=		cvisitor.cc \
+		cvisitor_state.cc \
 		paths.cc \
-		project.cc
+		project.cc \
+		symbol_table.cc
 
 CFLAGS_WARN?=	-Wall -Werror -Wextra \
 		-Wno-unused-parameter \

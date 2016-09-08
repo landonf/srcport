@@ -28,35 +28,27 @@
  * $FreeBSD$
  */
 
-#ifndef _SRCPORT_CVISITOR_HH_
-#define _SRCPORT_CVISITOR_HH_
+#ifndef _SRCPORT_SYMBOL_TABLE_HH_
+#define _SRCPORT_SYMBOL_TABLE_HH_
 
+#include "project.hh"
 
-#include "clang/Frontend/FrontendAction.h"
-#include "clang/Frontend/FrontendActions.h"
-#include "clang/Frontend/CompilerInstance.h"
-
-#include "clang/AST/ASTConsumer.h"
-#include "clang/AST/RecursiveASTVisitor.h"
-
-#include "cvisitor_state.hh"
-
-class SourcePortASTVisitor: public clang::RecursiveASTVisitor<SourcePortASTVisitor> {
+class SymbolTable {
 public:
-	explicit SourcePortASTVisitor (VisitorState &&state):
-	    _state(std::move(state))
+	SymbolTable (const Project &project):
+	    _proj(project)
+	{}
+	SymbolTable (Project &&project):
+	    _proj(std::move(project))
 	{}
 
-	explicit SourcePortASTVisitor (const VisitorState &state):
-	    _state(state)
-	{}
-
-	bool VisitDeclaratorDecl (clang::DeclaratorDecl *decl);
-	bool VisitDeclRefExpr (clang::DeclRefExpr *decl);
-	bool VisitStmt (clang::Stmt *stmt);
-
+	const Project &
+	project () const
+	{
+		return (_proj);
+	}
 private:
-	VisitorState _state;
+	Project _proj;
 };
 
-#endif /* _SRCPORT_CVISITOR_HH_ */
+#endif /* _SRCPORT_SYMBOL_TABLE_HH_ */
