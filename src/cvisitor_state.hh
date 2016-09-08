@@ -41,7 +41,7 @@
 
 class VisitorState {
 public:
-	VisitorState (std::shared_ptr<SymbolTable> &syms, clang::CompilerInstance &c): 
+	VisitorState (std::shared_ptr<symtab::SymbolTable> &syms, clang::CompilerInstance &c): 
 	    _syms(syms), _c(c), _ast(c.getASTContext()), _srcManager(_ast.getSourceManager())
 	{
 		assert(syms);
@@ -58,7 +58,7 @@ public:
 	std::string descLoc (const clang::SourceLocation &loc);
 	void dumpLoc (const clang::SourceLocation &loc);
 
-	std::shared_ptr<SymbolTable> &syms () { return (_syms); }
+	std::shared_ptr<symtab::SymbolTable> &syms () { return (_syms); }
 	clang::CompilerInstance &c () { return (_c); }
 	clang::ASTContext &ast () { return (_ast); }
 	clang::SourceManager &srcManager () { return (_srcManager); }
@@ -67,10 +67,10 @@ private:
 	bool locMatches (const clang::SourceLocation &loc, const PathPattern &p) const;
 	bool hasFileEntry (const clang::SourceLocation &loc) const;
 
-	std::shared_ptr<SymbolTable>	 _syms;
-	clang::CompilerInstance		&_c;
-	clang::ASTContext		&_ast;
-	clang::SourceManager		&_srcManager;
+	std::shared_ptr<symtab::SymbolTable>	 _syms;
+	clang::CompilerInstance			&_c;
+	clang::ASTContext			&_ast;
+	clang::SourceManager			&_srcManager;
 };
 
 

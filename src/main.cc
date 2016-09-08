@@ -45,7 +45,7 @@ using namespace clang;
 using namespace clang::tooling;
 using namespace llvm;
 using namespace std;
-
+using namespace symtab;
 
 static llvm::cl::OptionCategory PortToolCategory("port options");
 static cl::extrahelp CommonHelp(CommonOptionsParser::HelpMessage);
@@ -103,6 +103,8 @@ unique_ptr<FrontendActionFactory> newFrontendAnalysisActionFactory(shared_ptr<Sy
 }
 
 int main(int argc, const char **argv) {
+	int ret;
+	
 	CommonOptionsParser opts(argc, argv, PortToolCategory);
 	ClangTool tool(opts.getCompilations(), opts.getSourcePathList());
 
@@ -116,5 +118,11 @@ int main(int argc, const char **argv) {
 	    Project(PathPattern(*&SourcePaths), PathPattern(*&HostPaths))
 	);
 
-	return (tool.run(newFrontendAnalysisActionFactory(syms).get()));
+	ret = tool.run(newFrontendAnalysisActionFactory(syms).get());
+	if (ret != 0)
+		return (ret);
+
+	// TODO: make use of syms
+	printf("TODO\n");
+	return (0);
 }

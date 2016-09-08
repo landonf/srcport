@@ -31,7 +31,66 @@
 #ifndef _SRCPORT_SYMBOL_TABLE_HH_
 #define _SRCPORT_SYMBOL_TABLE_HH_
 
+#include <unordered_map>
+#include <unordered_set>
+
+#include <clang/AST/AST.h>
+#include <clang/Lex/PreprocessingRecord.h>
+
+#include <ftl/sum_type.h>
+#include <ftl/maybe.h>
+
+#include "record_type.hpp"
+
+#include "paths.hh"
 #include "project.hh"
+
+namespace symtab {
+
+using StrRef = std::shared_ptr<const std::string>;
+using PathRef = std::shared_ptr<const Path>;
+using SymParent = ftl::maybe<clang::FunctionDecl *>;
+
+PL_RECORD_STRUCT(Location,
+	(PathRef,	path),
+	(unsigned,	line),
+	(unsigned,	column)
+);
+
+using LocRef = std::shared_ptr<const Location>;
+
+PL_RECORD_STRUCT(LangSymbol,
+	(StrRef,		name),
+	(clang::NamedDecl *,	decl),
+	(LocRef,		location),
+	(StrRef,		USR)
+);
+
+PL_RECORD_STRUCT(MacroSymbol,
+	(StrRef,		name),
+	(clang::MacroInfo *,	info),
+	(LocRef,		location),
+	(StrRef,		USR)
+);
+
+using Symbol = ftl::sum_type<LangSymbol, MacroSymbol>;
+using SymbolRef = std::shared_ptr<const Symbol>;
+
+PL_RECORD_STRUCT(LangUse,
+	(clang::DeclRefExpr *,	expr),
+	(SymParent,		parent),
+	(LocRef,		location),
+	(StrRef,		USR)
+);
+
+PL_RECORD_STRUCT(MacroUse,
+	(clang::Stmt *,		expr),
+	(SymParent,		parent),
+	(LocRef,		location),
+	(StrRef,		USR)
+);
+
+using SymbolUse = ftl::sum_type<LangUse, MacroUse>;
 
 class SymbolTable {
 public:
@@ -48,7 +107,22 @@ public:
 		return (_proj);
 	}
 private:
-	Project _proj;
+	/* Map of symbols to their enclosing path. */
+	std::unordered_multimap<PathRef, SymbolRef>	_syms;
+
+	/** Map of paths to associated symbol uses */
+	std::unordered_multimap<PathRef, SymbolUse>	_uses;
+
+	/** USR symbol lookup table */
+	std::unordered_map<StrRef, SymbolRef>		_symtab;
+
+	/** USR symbol use lookup table */
+	std::unordered_map<StrRef, SymbolRef>		_usetab;
+
+	/** Project configuration */
+	Project						_proj;
 };
+
+} /* namespace symtab */
 
 #endif /* _SRCPORT_SYMBOL_TABLE_HH_ */
