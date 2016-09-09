@@ -31,3 +31,25 @@ __FBSDID("$FreeBSD$");
 
 #define CATCH_CONFIG_MAIN
 #include <catch.hpp>
+
+
+/* XXX:
+ * Test linking breaks due to missing symbols if we do not
+ * include these symbol references.
+ * 
+ * libclangASTMatchers.a(ASTMatchFinder.cpp.o):(.data.rel.ro._ZTVN5clang12ast_matchers8internal12_GLOBAL__N_116MatchASTConsumerE+0x28): undefined reference to `clang::ASTConsumer::HandleTopLevelDecl(clang::DeclGroupRef)'
+ * libclangASTMatchers.a(ASTMatchFinder.cpp.o):(.data.rel.ro._ZTVN5clang12ast_matchers8internal12_GLOBAL__N_116MatchASTConsumerE+0x38): undefined reference to `clang::ASTConsumer::HandleInterestingDecl(clang::DeclGroupRef)'
+ * libclangASTMatchers.a(ASTMatchFinder.cpp.o):(.data.rel.ro._ZTVN5clang12ast_matchers8internal12_GLOBAL__N_116MatchASTConsumerE+0x60): undefined reference to `clang::ASTConsumer::HandleTopLevelDeclInObjCContainer(clang::DeclGroupRef)'
+ * libclangASTMatchers.a(ASTMatchFinder.cpp.o):(.data.rel.ro._ZTVN5clang12ast_matchers8internal12_GLOBAL__N_116MatchASTConsumerE+0x68): undefined reference to `clang::ASTConsumer::HandleImplicitImportDecl(clang::ImportDecl*)'
+ * 
+ * Presumably they prevent stripping (or trigger generation) of ASTConsumer common symbols?
+ */
+#include "clang/Tooling/Tooling.h"
+#include "clang/Tooling/CommonOptionsParser.h"
+
+#include "llvm/Support/CommandLine.h"
+
+using namespace clang::tooling;
+using namespace llvm;
+
+static cl::extrahelp CommonHelp(CommonOptionsParser::HelpMessage);
