@@ -192,7 +192,6 @@ SourcePortASTVisitor::recordSymbolUseVisit (DeclaratorDecl *useExpr, NamedDecl *
 		[&](ftl::otherwise) {
 			auto s = make_shared<Symbol>(
 			    make_shared<string>(declExpr->getName()),
-			    SymbolDecl { ftl::constructor<NamedDecl*>(), declExpr },
 			    getLocation(declExpr->getLocation()),
 			    USR
 			);
@@ -204,8 +203,6 @@ SourcePortASTVisitor::recordSymbolUseVisit (DeclaratorDecl *useExpr, NamedDecl *
 	/* Register symbol use */
 	auto symbolUse = make_shared<SymbolUse>(
 		symbol,
-		SymbolUseExpr { ftl::constructor<DeclaratorDecl *>(), useExpr },
-		_inFunc == nullptr ? ftl::Nothing() : ftl::just(_inFunc),
 		getLocation(useExpr->getLocation()),
 		USR
 	);
@@ -242,7 +239,6 @@ SourcePortASTVisitor::recordSymbolUseVisit (Stmt *useExpr, StringRef macroName)
 		[&](ftl::otherwise) {
 			auto s = make_shared<Symbol>(
 			    make_shared<string>(macroName),
-			    SymbolDecl { ftl::constructor<MacroInfo*>(), info },
 			    getLocation(info->getDefinitionLoc()),
 			    USR
 			);
@@ -254,8 +250,6 @@ SourcePortASTVisitor::recordSymbolUseVisit (Stmt *useExpr, StringRef macroName)
 	/* Register symbol use */
 	auto symbolUse = make_shared<SymbolUse>(
 	    symbol,
-	    SymbolUseExpr { ftl::constructor<Stmt *>(), useExpr },
-	    _inFunc == nullptr ? ftl::Nothing() : ftl::just(_inFunc),
 	    getLocation(usedAt),
 	    USR
 	);
@@ -349,7 +343,6 @@ SourcePortASTVisitor::recordSymbolUseVisit (DeclRefExpr *useExpr, NamedDecl *dec
 
 			auto s = make_shared<Symbol>(
 			    make_shared<string>(declExpr->getName()),
-			    SymbolDecl { ftl::constructor<NamedDecl*>(), declExpr },
 			    getLocation(declLoc),
 			    USR
 			);
@@ -361,8 +354,6 @@ SourcePortASTVisitor::recordSymbolUseVisit (DeclRefExpr *useExpr, NamedDecl *dec
 	/* Register symbol use */
 	auto symbolUse = make_shared<SymbolUse>(
 		symbol,
-		SymbolUseExpr { ftl::constructor<DeclRefExpr *>(), useExpr },
-		_inFunc == nullptr ? ftl::Nothing() : ftl::just(_inFunc),
 		getLocation(useExpr->getLocation()),
 		USR
 	);

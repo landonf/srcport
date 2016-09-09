@@ -36,10 +36,6 @@
 #include <unordered_map>
 #include <unordered_set>
 
-#include <clang/AST/AST.h>
-#include <clang/Lex/PreprocessingRecord.h>
-
-#include <ftl/sum_type.h>
 #include <ftl/maybe.h>
 
 #include "record_type.hpp"
@@ -49,12 +45,8 @@
 
 namespace symtab {
 
-using SymbolDecl = ftl::sum_type<clang::NamedDecl *, clang::MacroInfo *>;
-using SymbolUseExpr = ftl::sum_type<clang::DeclRefExpr *, clang::DeclaratorDecl *, clang::Stmt *>;
-
 using StrRef = std::shared_ptr<std::string>;
 using PathRef = std::shared_ptr<Path>;
-using SymParent = ftl::maybe<clang::FunctionDecl *>;
 
 class Location {
 	PL_RECORD_FIELDS(Location,
@@ -68,7 +60,6 @@ std::string to_string (const Location &l);
 
 PL_RECORD_STRUCT(Symbol,
 	(StrRef,	name),
-	(SymbolDecl,	decl),
 	(Location,	location),
 	(StrRef,	USR)
 );
@@ -77,8 +68,6 @@ using SymbolRef = std::shared_ptr<Symbol>;
 
 PL_RECORD_STRUCT(SymbolUse,
 	(SymbolRef,		symbol),
-	(SymbolUseExpr,		expr),
-	(SymParent,		parent),
 	(Location,		location),
 	(StrRef,		USR)
 );

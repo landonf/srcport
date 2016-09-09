@@ -128,19 +128,7 @@ int main(int argc, const char **argv) {
 	}
 
 	for (const auto &use : symtab->getSymbolUses()) {
-#if 0
-		auto parentName = use->parent().match(
-			[](const FunctionDecl *f) {
-				return string(f->getName());
-			},
-			[](ftl::otherwise) {
-				return string("TODO-FILE-HERE");
-			}
-		);
-#endif
-		auto parentName = string("foo");
-
-		llvm::outs() << parentName << " -> " << *use->symbol()->name() << "\n";
+		llvm::outs() << " -> " << *use->symbol()->name() << "\n";
 	}
 
 	return (0);
