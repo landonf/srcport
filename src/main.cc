@@ -122,11 +122,10 @@ int main(int argc, const char **argv) {
 	if (ret != 0)
 		return (ret);
 
+	// TODO: make use of syms
 	for (const auto &sym : symtab->getSymbols()) {
-		llvm::outs() << *sym.name() << "\n";
+		llvm::outs() << *sym->name() << "\n";
 	}
 
-	// TODO: make use of syms
-	printf("TODO\n");
 	return (0);
 }

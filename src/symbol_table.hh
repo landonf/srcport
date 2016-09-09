@@ -69,6 +69,8 @@ PL_RECORD_STRUCT(Symbol,
 	(StrRef,	USR)
 );
 
+using SymbolRef = std::shared_ptr<Symbol>;
+
 PL_RECORD_STRUCT(SymbolUse,
 	(SymbolUseExpr,		expr),
 	(SymParent,		parent),
@@ -76,13 +78,15 @@ PL_RECORD_STRUCT(SymbolUse,
 	(StrRef,		USR)
 );
 
+using SymbolUseRef = std::shared_ptr<SymbolUse>;
+
 } /* namespace symtab */
 
 
 namespace std {
 	template<> struct hash<symtab::Location> {
 		std::size_t
-		operator()(symtab::Location const &l) const 
+		operator()(const symtab::Location &l) const 
 		{
 			std::size_t h1 = hash<Path>()(*l.path());
 			std::size_t h2 = l.line();
@@ -92,7 +96,7 @@ namespace std {
 
 	template<> struct hash<symtab::Symbol> {
 		std::size_t
-		operator()(symtab::Symbol const &s) const 
+		operator()(const symtab::Symbol &s) const 
 		{
 			return (hash<string>()(*s.USR()));
 		}
@@ -100,7 +104,7 @@ namespace std {
 
 	template<> struct hash<symtab::SymbolUse> {
 		std::size_t
-		operator()(symtab::SymbolUse const &u) const 
+		operator()(const symtab::SymbolUse &u) const 
 		{
 			return (hash<symtab::Location>()(u.location()));
 		}
@@ -111,6 +115,43 @@ namespace symtab {
 
 class SymbolTable {
 public:
+	template <typename T> struct sptr_hash {
+		std::size_t operator() (const T &ptr) const
+		{
+			return (std::hash<ftl::Value_type<T>>()(*ptr));
+		}
+	};
+
+	template <typename T> struct sptr_eqto {
+		std::size_t operator() (const T &lhs, const T &rhs) const
+		{
+			return (std::equal_to<ftl::Value_type<T>>()(*lhs, *rhs));
+		}
+	};
+
+	template <typename T> struct ref_hash {
+		std::size_t operator() (const std::reference_wrapper<T> &ptr) const
+		{
+			return (std::hash<T*>()(&ptr.get()));
+		}
+	};
+
+	template <typename T> struct ref_eqto {
+		std::size_t operator() (const std::reference_wrapper<T> &lhs, const std::reference_wrapper<T> &rhs) const
+		{
+			return (lhs.get() == rhs.get());
+		}
+	};
+
+	template <typename T>
+	    using rset = std::unordered_set<T, sptr_hash<T>, sptr_eqto<T>>;
+
+	template <typename K, typename V>
+	    using rmap = std::unordered_map<K, V, sptr_hash<K>, sptr_eqto<K>>;
+
+	template <typename K, typename V>
+	    using rmultimap = std::unordered_multimap<K, V, sptr_hash<K>, sptr_eqto<K>>;
+	
 	SymbolTable (const Project &project):
 	    _proj(project)
 	{}
@@ -124,55 +165,61 @@ public:
 		return (_proj);
 	}
 
-	ftl::maybe<const Symbol *> lookupUSR (const std::string &USR) const;
+	ftl::maybe<SymbolRef> lookupUSR (const std::string &USR) const;
 	bool hasUSR (const std::string &USR) const;
 
-	void addSymbol (const Symbol &symbol);
-	void addSymbolUse (const SymbolUse &use);
+	void addSymbol (SymbolRef symbol);
+	void addSymbolUse (SymbolUseRef use);	
 
 	PathRef getPath (const std::string &strval);
+	StrRef getUSR (const std::string &strval);
 
-	const std::unordered_set<SymbolUse> &getSymbolUses () {
+	const rset<SymbolUseRef> &getSymbolUses () {
 		return (_uses);
 	}
 
-	const std::unordered_set<Symbol> &getSymbols () {
+	const rset<SymbolRef> &getSymbols () {
 		return (_syms);
 	}
+
 private:
 	/** All referenced symbols */
-	std::unordered_set<SymbolUse>				_uses;
+	rset<SymbolUseRef>			_uses;
 
 	/** All defined symbols. */
-	std::unordered_set<Symbol>				_syms;
+	rset<SymbolRef>				_syms;
 
-	/* Path cache lookup table */
+	/** USR cache */
 	std::unordered_map<
-		const std::string *, PathRef
+		std::reference_wrapper<const std::string>,
+		StrRef,
+		ref_hash<const std::string>,
+		ref_eqto<const std::string>
+	> _usr_cache;
+
+	/* Path cache */
+	std::unordered_map<
+		std::reference_wrapper<const std::string>,
+		PathRef,
+		ref_hash<const std::string>,
+		ref_eqto<const std::string>
 	> _path_cache;
 
+
 	/** Symbol file lookup table */
-	std::unordered_multimap<
-		const Path *, const Symbol *
-	> _syms_path;
+	rmultimap<PathRef, SymbolRef>		_syms_path;
 
 	/** Symbol USR lookup table */
-	std::unordered_map<
-		const std::string *, const Symbol *
-	> _syms_usr;
+	rmap<StrRef, SymbolRef>			_syms_usr;
 
 	/** SymbolUse file lookup table */
-	std::unordered_multimap<
-		const Path *, const SymbolUse *
-	> _uses_path;
+	rmultimap<PathRef, SymbolUseRef>	_uses_path;
 
 	/** SymbolUse USR lookup table */
-	std::unordered_multimap<
-		const std::string *, const SymbolUse *
-	> _uses_usr;
+	rmultimap<StrRef, SymbolUseRef>		_uses_usr;
 
 	/** Project configuration */
-	Project							_proj;
+	Project					_proj;
 };
 
 } /* namespace symtab */

@@ -29,25 +29,32 @@
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD$");
 
+#include <functional>
+
 #include "symbol_table.hh"
 
 using namespace std;
 
 namespace symtab {
 
-ftl::maybe<const Symbol *>
+ftl::maybe<SymbolRef>
 SymbolTable::lookupUSR (const std::string &USR) const
 {
-	if (hasUSR(USR))
-		return (ftl::just(static_cast<const Symbol *>(_syms_usr.at(&USR))));
+	if (!hasUSR(USR))
+		return (ftl::Nothing());
 
-	return (ftl::Nothing());
+	const auto &key = _usr_cache.at(std::cref(USR));
+	return (ftl::just((_syms_usr.at(key))));
 }
 
 bool
 SymbolTable::hasUSR (const std::string &USR) const
 {
-	return (_syms_usr.count(&USR) > 0);
+	if (_usr_cache.count(std::cref(USR)) == 0)
+		return (false);
+
+	const auto &key = _usr_cache.at(std::cref(USR));
+	return (_syms_usr.count(key) > 0);
 }
 
 /**
@@ -57,42 +64,65 @@ SymbolTable::hasUSR (const std::string &USR) const
 PathRef
 SymbolTable::getPath (const string &strval)
 {
-	if (_path_cache.count(&strval) > 0)
-		return (_path_cache[&strval]);
+	auto key = std::cref(strval);
 
-	auto p = make_shared<Path>(Path(strval).normalize());
+	if (_path_cache.count(key) > 0)
+		return (_path_cache[key]);
 
-	_path_cache.emplace(&p->stringValue(), p);
+	auto normalized = Path(strval).normalize();
+	key = std::cref(normalized.stringValue());
+
+	if (_path_cache.count(key) > 0)
+		return (_path_cache[key]);
+
+	auto p = make_shared<Path>(normalized);
+	_path_cache.emplace(std::cref(p->stringValue()), p);
 
 	return (p);
 }
 
-void
-SymbolTable::addSymbol (const Symbol &symbol)
+/**
+ * Return a USR reference for the given USR string, caching a new USR
+ * instance if necessary.
+ */
+StrRef
+SymbolTable::getUSR (const string &strval)
 {
-	if (hasUSR(*symbol.USR()))
-		return;
+	auto key = std::cref(strval);
 
-	auto iter = _syms.emplace(symbol).first;
+	if (_usr_cache.count(key) > 0)
+		return (_usr_cache[key]);
 
-	const Symbol *ref = &*iter;
+	auto cached = make_shared<string>(strval);
+	_usr_cache.emplace(std::cref(*cached), cached);
 
-	_syms_usr.emplace(make_pair(&*ref->USR(), ref));
-	_syms_path.emplace(make_pair(&*ref->location().path(), ref));
+	return (cached);
 }
 
 void
-SymbolTable::addSymbolUse (const SymbolUse &use)
+SymbolTable::addSymbol (SymbolRef symbol)
+{
+	if (hasUSR(*symbol->USR()))
+		return;
+
+	_syms.emplace(symbol);
+	_usr_cache.emplace(std::cref(*symbol->USR()), symbol->USR());
+
+	_syms_usr.emplace(make_pair(symbol->USR(), symbol));
+	_syms_path.emplace(make_pair(symbol->location().path(), symbol));
+}
+
+void
+SymbolTable::addSymbolUse (SymbolUseRef use)
 {
 	if (_uses.count(use) > 0)
 		return;
 
-	auto iter = _uses.emplace(use).first;
+	_uses.emplace(use);
+	_usr_cache.emplace(std::cref(*use->USR()), use->USR());
 
-	const SymbolUse *ref = &*iter;
-
-	_uses_usr.emplace(make_pair(&*ref->USR(), ref));
-	_uses_path.emplace(make_pair(&*ref->location().path(), ref));
+	_uses_usr.emplace(make_pair(use->USR(), use));
+	_uses_path.emplace(make_pair(use->location().path(), use));
 }
 	
 } /* namespace symtab */

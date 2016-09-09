@@ -220,7 +220,7 @@ SourcePortASTVisitor::VisitDeclRefExpr (clang::DeclRefExpr *decl)
 	if (_inFunc != nullptr)
 		parent = ftl::just(_inFunc);
 
-	_state.syms()->addSymbolUse(SymbolUse(useExpr, parent, usedAt, usr));
+	_state.syms()->addSymbolUse(make_shared<SymbolUse>(useExpr, parent, usedAt, usr));
 
 	/* If the symbol itself has previously been registered, nothing left
 	 * to do. */
@@ -236,7 +236,7 @@ SourcePortASTVisitor::VisitDeclRefExpr (clang::DeclRefExpr *decl)
 	Location definedAt = getLocation(targetLoc);
 
 	/* Register the symbol */
-	_state.syms()->addSymbol(Symbol(name, symDecl, definedAt, usr));
+	_state.syms()->addSymbol(make_shared<Symbol>(name, symDecl, definedAt, usr));
 
 	return (true);
 };
