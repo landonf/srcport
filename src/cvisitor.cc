@@ -216,7 +216,6 @@ SourcePortASTVisitor::recordSymbolUseVisit (DeclaratorDecl *useExpr, NamedDecl *
 void
 SourcePortASTVisitor::recordSymbolUseVisit (Stmt *useExpr, StringRef macroName)
 {
-	SmallString<255>	sbuf;
 	shared_ptr<string>	USR;
 
 	auto usedAt = _state.srcManager().getExpansionLoc(useExpr->getLocStart());
@@ -235,10 +234,7 @@ SourcePortASTVisitor::recordSymbolUseVisit (Stmt *useExpr, StringRef macroName)
 	}
 
 	/* Generate USR */
-	if (generateUSRForMacro(&mrec, _state.srcManager(), sbuf))
-		return;
-
-	USR = make_shared<string>(sbuf.str());
+	USR = generateUSR(mrec);
 
 	/* Register or fetch existing symbol */
 	auto symbol = _state.syms()->lookupUSR(*USR).match(
@@ -267,6 +263,33 @@ SourcePortASTVisitor::recordSymbolUseVisit (Stmt *useExpr, StringRef macroName)
 	_state.syms()->addSymbolUse(symbolUse);
 }
 
+/** Generate and return a USR for @p decl */
+StrRef
+SourcePortASTVisitor::generateUSR (const Decl *decl)
+{
+	SmallString<255>	sbuf;
+	
+	/* Generate USR string */
+	if (generateUSRForDecl(decl, sbuf))
+		abort();
+
+	return (_state.syms()->getUSR(sbuf.str()));	
+}
+
+/** Generate and return a USR for @p macro */
+StrRef
+SourcePortASTVisitor::generateUSR (const MacroDefinitionRecord &macro)
+{
+	SmallString<255>	sbuf;
+	
+	/* Generate USR string */
+	if (generateUSRForMacro(&macro, _state.srcManager(), sbuf))
+		abort();
+
+	return (_state.syms()->getUSR(sbuf.str()));
+}
+
+
 void
 SourcePortASTVisitor::getSymbolDefinition(clang::NamedDecl *decl)
 {
@@ -283,17 +306,17 @@ SourcePortASTVisitor::getSymbolDefinition(clang::NamedDecl *decl)
 		    ).bind("enumConst")
 		)).bind("enumDecl");
 
-		_state.match(m, [](const MatchFinder::MatchResult &r) {
+		_state.match(m, [&](const MatchFinder::MatchResult &r) {
 			const EnumDecl *parent = r.Nodes.getDeclAs<EnumDecl>("enumDecl");
 			const EnumConstantDecl *child = r.Nodes.getDeclAs<EnumConstantDecl>("enumConst");
 			if (!parent || !child)
 				return;
 
+			if (child->getName() != ec->getName())
+				return;
+
 			parent->dump();
 		});
-		
-		(void)ec;
-		
 	} else if (isa<FunctionDecl>(decl)) {
 	} else {
 		auto &diags = _state.ast().getDiagnostics();
@@ -305,14 +328,10 @@ SourcePortASTVisitor::getSymbolDefinition(clang::NamedDecl *decl)
 void
 SourcePortASTVisitor::recordSymbolUseVisit (DeclRefExpr *useExpr, NamedDecl *declExpr)
 {
-	SmallString<255>	sbuf;
 	shared_ptr<string>	USR;
 
 	/* Generate USR */
-	if (generateUSRForDecl(declExpr, sbuf))
-		return;
-
-	USR = make_shared<string>(sbuf.str());
+	USR = generateUSR(declExpr);
 	
 	/* Register or fetch existing symbol */
 	auto symbol = _state.syms()->lookupUSR(*USR).match(

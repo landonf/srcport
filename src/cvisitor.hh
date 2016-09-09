@@ -58,6 +58,9 @@ public:
 	bool VisitStmt (clang::Stmt *stmt);
 
 private:
+	symtab::StrRef generateUSR (const clang::Decl *decl);
+	symtab::StrRef generateUSR (const clang::MacroDefinitionRecord &macro);
+
 	void getSymbolDefinition (clang::NamedDecl *decl);
 
 	void recordSymbolUseVisit (clang::DeclRefExpr *useExpr, clang::NamedDecl *declExpr);
