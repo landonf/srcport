@@ -76,6 +76,7 @@ PL_RECORD_STRUCT(Symbol,
 using SymbolRef = std::shared_ptr<Symbol>;
 
 PL_RECORD_STRUCT(SymbolUse,
+	(SymbolRef,		symbol),
 	(SymbolUseExpr,		expr),
 	(SymParent,		parent),
 	(Location,		location),
