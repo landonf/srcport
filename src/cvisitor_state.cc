@@ -164,7 +164,7 @@ VisitorState::dumpLoc (const SourceLocation &loc)
 	llvm::errs() << descLoc(loc) << "\n";
 }
 
-const Decl *
+const NamedDecl *
 VisitorState::getTypeDecl(const Type *t, const TypeSourceInfo *info) const
 {
 	if (const TagType *r = t->getAs<TagType>()) {

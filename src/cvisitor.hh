@@ -58,11 +58,17 @@ public:
 	bool VisitStmt (clang::Stmt *stmt);
 
 private:
+	void recordSymbolUseVisit (clang::DeclRefExpr *useExpr, clang::NamedDecl *declExpr);
+	void recordSymbolUseVisit (clang::Stmt *useExpr, clang::StringRef macroName);
+	void recordSymbolUseVisit (clang::DeclaratorDecl *useExpr, clang::NamedDecl *declExpr);
+
 	symtab::Location getLocation (const clang::SourceLocation &loc);
 
 	clang::CallExpr *_inCall = nullptr;
 	clang::FunctionDecl *_inFunc = nullptr;
 	VisitorState _state;
 };
+
+
 
 #endif /* _SRCPORT_CVISITOR_HH_ */

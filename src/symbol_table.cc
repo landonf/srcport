@@ -37,6 +37,12 @@ using namespace std;
 
 namespace symtab {
 
+/** Location to_string() support */
+std::string to_string (const Location &l) {
+	return (l.path()->stringValue() + ":" + std::to_string(l.line()) +
+	    ":" + std::to_string(l.column()));
+}
+
 ftl::maybe<SymbolRef>
 SymbolTable::lookupUSR (const std::string &USR) const
 {

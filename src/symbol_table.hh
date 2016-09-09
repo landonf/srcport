@@ -50,17 +50,21 @@
 namespace symtab {
 
 using SymbolDecl = ftl::sum_type<clang::NamedDecl *, clang::MacroInfo *>;
-using SymbolUseExpr = ftl::sum_type<clang::DeclRefExpr *, clang::Stmt *>;
+using SymbolUseExpr = ftl::sum_type<clang::DeclRefExpr *, clang::DeclaratorDecl *, clang::Stmt *>;
 
 using StrRef = std::shared_ptr<std::string>;
 using PathRef = std::shared_ptr<Path>;
 using SymParent = ftl::maybe<clang::FunctionDecl *>;
 
-PL_RECORD_STRUCT(Location,
-	(PathRef,	path),
-	(unsigned,	line),
-	(unsigned,	column)
-);
+class Location {
+	PL_RECORD_FIELDS(Location,
+		(PathRef,	path),
+		(unsigned,	line),
+		(unsigned,	column)
+	)
+};
+
+std::string to_string (const Location &l);
 
 PL_RECORD_STRUCT(Symbol,
 	(StrRef,	name),

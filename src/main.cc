@@ -124,7 +124,21 @@ int main(int argc, const char **argv) {
 
 	// TODO: make use of syms
 	for (const auto &sym : symtab->getSymbols()) {
-		llvm::outs() << *sym->name() << "\n";
+		llvm::outs() << *sym->name() << " defined at " << to_string(sym->location()) << "\n";
+	}
+
+	for (const auto &use : symtab->getSymbolUses()) {
+		auto symbol = ftl::get<SymbolRef>(symtab->lookupUSR(*use->USR()));
+		auto parentName = use->parent().match(
+			[](const FunctionDecl *f) {
+				return string(f->getName());
+			},
+			[](ftl::otherwise) {
+				return string("TODO-FILE-HERE");
+			}
+		);
+
+		llvm::outs() << parentName << " -> " << *symbol->name() << "\n";
 	}
 
 	return (0);

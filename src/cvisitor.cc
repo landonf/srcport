@@ -47,10 +47,8 @@ static unordered_set<string> seen;
 
 bool SourcePortASTVisitor::VisitDeclaratorDecl (clang::DeclaratorDecl *decl)
 {	
-	const clang::Decl	*defn;
+	const clang::NamedDecl	*defn;
 	const clang::Type	*t;
-	SmallString<255>	 sbuf;
-	string			 usr;
 
 	if (!_state.isSourceLoc(decl->getLocation()))
 		return (true);
@@ -63,18 +61,50 @@ bool SourcePortASTVisitor::VisitDeclaratorDecl (clang::DeclaratorDecl *decl)
 	if (!_state.isHostRef(decl->getLocation(), defn->getLocation()))
 		return (true);
 
-	if (generateUSRForDecl(defn, sbuf))
-		return (true);
-
-	usr = sbuf.str();
-	if (seen.count(usr) > 0)
-		return (true);
-	else
-		seen.emplace(usr);
-
-	llvm::outs() << usr << "\n";
+	recordSymbolUseVisit(decl, (NamedDecl *)defn);
 
 	return (true);
+}
+
+void
+SourcePortASTVisitor::recordSymbolUseVisit (DeclaratorDecl *useExpr, NamedDecl *declExpr)
+{
+	SmallString<255>	sbuf;
+	shared_ptr<string>	USR, name;
+
+	/* Generate USR */
+	if (generateUSRForDecl(declExpr, sbuf))
+		return;
+
+	USR = make_shared<string>(sbuf.str());
+
+	/* Fetch symbol name */
+	name = make_shared<string>(declExpr->getName());
+
+	/* Register symbol use */
+	auto symbolUse = make_shared<SymbolUse>(
+		SymbolUseExpr { ftl::constructor<DeclaratorDecl *>(), useExpr },
+		_inFunc == nullptr ? ftl::Nothing() : ftl::just(_inFunc),
+		getLocation(useExpr->getLocation()),
+		USR
+	);
+
+	_state.syms()->addSymbolUse(symbolUse);
+
+	/* If the symbol itself has previously been registered, nothing left
+	 * to do. */
+	if (_state.syms()->hasUSR(*USR))
+		return;
+
+	/* Register the symbol */
+	auto symbol = make_shared<Symbol>(
+		name,
+		SymbolDecl { ftl::constructor<NamedDecl*>(), declExpr },
+		getLocation(declExpr->getLocation()),
+		USR
+	);
+
+	_state.syms()->addSymbol(symbol);
 }
 
 bool
@@ -134,29 +164,7 @@ SourcePortASTVisitor::VisitStmt (Stmt *stmt)
 		auto &cpp = _state.c().getPreprocessor();
 		auto mname = cpp.getImmediateMacroName(stmt->getLocStart());
 
-		auto *mid = cpp.getIdentifierInfo(mname);
-		MacroDefinition mdef = cpp.getMacroDefinitionAtLoc(mid, stmt->getLocStart());
-		MacroInfo *info = mdef.getMacroInfo();
-
-		auto mrange = SourceRange(info->getDefinitionLoc(), info->getDefinitionEndLoc());
-		auto mrec = MacroDefinitionRecord(mid, mrange);
-
-		/* Skip argument expansion of our own macros */
-		if (_state.srcManager().isMacroArgExpansion(loc)) {
-			if (_state.isSourceLoc(mrange.getBegin()) && !_state.isHostLoc(mrange.getBegin()))
-				return (true);
-		}
-
-		if (generateUSRForMacro(&mrec, _state.srcManager(), sbuf))
-			return (true);
-
-		usr = sbuf.str();
-		if (seen.count(usr) > 0)
-			return (true);
-		else
-			seen.emplace(usr);
-
-		llvm::outs() << usr << "\n";
+		recordSymbolUseVisit(stmt, mname);
 	} else {
 		auto &diags = _state.ast().getDiagnostics();
 		unsigned diagID = diags.getCustomDiagID(DiagnosticsEngine::Error, "unsupported statement");
@@ -194,49 +202,112 @@ SourcePortASTVisitor::getLocation (const clang::SourceLocation &loc)
 	return (Location(path, line, column));
 }
 
-bool
-SourcePortASTVisitor::VisitDeclRefExpr (clang::DeclRefExpr *decl)
+void
+SourcePortASTVisitor::recordSymbolUseVisit (Stmt *useExpr, StringRef macroName)
 {
 	SmallString<255>	sbuf;
-	shared_ptr<string>	usr, name;
+	shared_ptr<string>	USR;
 
-	if (!_state.isHostRef(decl))
-		return (true);
+	auto usedAt = _state.srcManager().getExpansionLoc(useExpr->getLocStart());
+	auto &cpp = _state.c().getPreprocessor();
+	auto *mid = cpp.getIdentifierInfo(macroName);
+	MacroDefinition mdef = cpp.getMacroDefinitionAtLoc(mid, useExpr->getLocStart());
+	MacroInfo *info = mdef.getMacroInfo();
+
+	auto mrange = SourceRange(info->getDefinitionLoc(), info->getDefinitionEndLoc());
+	auto mrec = MacroDefinitionRecord(mid, mrange);
+
+	/* Skip argument expansion of our own macros */
+	if (_state.srcManager().isMacroArgExpansion(useExpr->getLocStart())) {
+		if (_state.isSourceLoc(mrange.getBegin()) && !_state.isHostLoc(mrange.getBegin()))
+			return;
+	}
 
 	/* Generate USR */
-	auto target = decl->getFoundDecl();
-	if (generateUSRForDecl(target, sbuf))
-		return (true);
+	if (generateUSRForMacro(&mrec, _state.srcManager(), sbuf))
+		return;
 
-	usr = make_shared<string>(sbuf.str());
-
-	/* Fetch symbol name */
-	name = make_shared<string>(target->getName());
+	USR = make_shared<string>(sbuf.str());
 
 	/* Register symbol use */
-	SymbolUseExpr useExpr { ftl::constructor<DeclRefExpr *>(), decl };
-	Location usedAt = getLocation(decl->getLocation());
-	SymParent parent = ftl::Nothing();
-	if (_inFunc != nullptr)
-		parent = ftl::just(_inFunc);
+	auto symbolUse = make_shared<SymbolUse>(
+		SymbolUseExpr { ftl::constructor<Stmt *>(), useExpr },
+		_inFunc == nullptr ? ftl::Nothing() : ftl::just(_inFunc),
+		getLocation(usedAt),
+		USR
+	);
 
-	_state.syms()->addSymbolUse(make_shared<SymbolUse>(useExpr, parent, usedAt, usr));
+	_state.syms()->addSymbolUse(symbolUse);
+
+	/* If the macro symbol itself has previously been registered, nothing
+	 * left to do. */
+	if (_state.syms()->hasUSR(*USR))
+		return;
+
+	/* Register the symbol */
+	auto symbol = make_shared<Symbol>(
+		make_shared<string>(macroName),
+		SymbolDecl { ftl::constructor<MacroInfo*>(), info },
+		getLocation(info->getDefinitionLoc()),
+		USR
+	);
+
+	_state.syms()->addSymbol(symbol);
+}
+
+void
+SourcePortASTVisitor::recordSymbolUseVisit (DeclRefExpr *useExpr, NamedDecl *declExpr)
+{
+	SmallString<255>	sbuf;
+	shared_ptr<string>	USR, name;
+
+	/* Generate USR */
+	if (generateUSRForDecl(declExpr, sbuf))
+		return;
+
+	USR = make_shared<string>(sbuf.str());
+
+	/* Fetch symbol name */
+	name = make_shared<string>(declExpr->getName());
+
+	/* Register symbol use */
+	auto symbolUse = make_shared<SymbolUse>(
+		SymbolUseExpr { ftl::constructor<DeclRefExpr *>(), useExpr },
+		_inFunc == nullptr ? ftl::Nothing() : ftl::just(_inFunc),
+		getLocation(useExpr->getLocation()),
+		USR
+	);
+
+	_state.syms()->addSymbolUse(symbolUse);
 
 	/* If the symbol itself has previously been registered, nothing left
 	 * to do. */
-	if (_state.syms()->hasUSR(*usr))
-		return (true);
+	if (_state.syms()->hasUSR(*USR))
+		return;
 
 	/* Track single-level macro expansion */
-	auto targetLoc = target->getLocation();
-	if (!_state.hasFileEntry(targetLoc) && targetLoc.isMacroID())
-		targetLoc = _state.srcManager().getExpansionLoc(targetLoc);
-
-	SymbolDecl symDecl { ftl::constructor<NamedDecl*>(), target };
-	Location definedAt = getLocation(targetLoc);
+	auto declLoc = declExpr->getLocation();
+	if (!_state.hasFileEntry(declLoc) && declLoc.isMacroID())
+		declLoc = _state.srcManager().getExpansionLoc(declLoc);
 
 	/* Register the symbol */
-	_state.syms()->addSymbol(make_shared<Symbol>(name, symDecl, definedAt, usr));
+	auto symbol = make_shared<Symbol>(
+		name,
+		SymbolDecl { ftl::constructor<NamedDecl*>(), declExpr },
+		getLocation(declLoc),
+		USR
+	);
+
+	_state.syms()->addSymbol(symbol);
+}
+
+bool
+SourcePortASTVisitor::VisitDeclRefExpr (clang::DeclRefExpr *decl)
+{
+	if (!_state.isHostRef(decl))
+		return (true);
+
+	recordSymbolUseVisit(decl, decl->getFoundDecl());
 
 	return (true);
 };

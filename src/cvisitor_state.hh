@@ -55,7 +55,7 @@ public:
 
 	bool hasFileEntry (const clang::SourceLocation &loc) const;
 
-	const clang::Decl *getTypeDecl (const clang::Type *t, const clang::TypeSourceInfo *info) const;
+	const clang::NamedDecl *getTypeDecl (const clang::Type *t, const clang::TypeSourceInfo *info) const;
 
 	std::string descLoc (const clang::SourceLocation &loc);
 	void dumpLoc (const clang::SourceLocation &loc);
