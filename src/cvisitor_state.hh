@@ -37,14 +37,43 @@
 
 #include <clang/AST/AST.h>
 
+#include <clang/ASTMatchers/ASTMatchers.h>
+#include <clang/ASTMatchers/ASTMatchFinder.h>
+
 #include "symbol_table.hh"
 
 class VisitorState {
 public:
+	using MatchFn = std::function<void(const clang::ast_matchers::MatchFinder::MatchResult &)>;
+	template<typename T> using Matcher = clang::ast_matchers::internal::Matcher<T>;
+
 	VisitorState (std::shared_ptr<symtab::SymbolTable> &syms, clang::CompilerInstance &c): 
 	    _syms(syms), _c(c), _ast(c.getASTContext()), _srcManager(_ast.getSourceManager())
 	{
 		assert(syms);
+	}
+
+	/**
+	 * Match over the AST using the provided matcher and match function.
+	 */
+	template <typename T, typename Fn> void match (Matcher<T> &matcher, Fn fn) const {		
+		using namespace clang::ast_matchers;
+
+		class FnMatchCallback : public MatchFinder::MatchCallback {
+		public:
+			FnMatchCallback (Fn fn) : _fn(fn) {}
+			virtual void run (const MatchFinder::MatchResult &Result) {
+				_fn(Result);
+			}
+		private:
+			Fn _fn;
+		};
+
+		MatchFinder finder;
+		auto callback = FnMatchCallback(fn);
+
+		finder.addMatcher(matcher, &callback);
+		finder.matchAST(_ast);
 	}
 
 	bool isHostRef (clang::DeclRefExpr *ref) const;

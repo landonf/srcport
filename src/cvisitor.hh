@@ -58,6 +58,8 @@ public:
 	bool VisitStmt (clang::Stmt *stmt);
 
 private:
+	void getSymbolDefinition (clang::NamedDecl *decl);
+
 	void recordSymbolUseVisit (clang::DeclRefExpr *useExpr, clang::NamedDecl *declExpr);
 	void recordSymbolUseVisit (clang::Stmt *useExpr, clang::StringRef macroName);
 	void recordSymbolUseVisit (clang::DeclaratorDecl *useExpr, clang::NamedDecl *declExpr);

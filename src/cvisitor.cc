@@ -37,13 +37,15 @@ __FBSDID("$FreeBSD$");
 #include <clang/Index/USRGeneration.h>
 #include <clang/Lex/Preprocessor.h>
 
+#include <clang/ASTMatchers/ASTMatchers.h>
+#include <clang/ASTMatchers/ASTMatchFinder.h>
+
 using namespace clang;
 using namespace clang::index;
 using namespace std;
 using namespace symtab;
 
-// XXX temporary
-static unordered_set<string> seen;
+using namespace clang::ast_matchers;
 
 bool SourcePortASTVisitor::VisitDeclaratorDecl (clang::DeclaratorDecl *decl)
 {	
@@ -266,6 +268,41 @@ SourcePortASTVisitor::recordSymbolUseVisit (Stmt *useExpr, StringRef macroName)
 }
 
 void
+SourcePortASTVisitor::getSymbolDefinition(clang::NamedDecl *decl)
+{
+	// TODO
+
+	//auto &smgr = _state.srcManager();
+	//auto &ast = _state.ast();
+
+	if (isa<EnumDecl>(decl)) {
+	} else if (EnumConstantDecl *ec = dyn_cast<EnumConstantDecl>(decl)) {
+		auto m = enumDecl(hasDescendant(
+		    enumConstantDecl(
+			hasName(decl->getName())
+		    ).bind("enumConst")
+		)).bind("enumDecl");
+
+		_state.match(m, [](const MatchFinder::MatchResult &r) {
+			const EnumDecl *parent = r.Nodes.getDeclAs<EnumDecl>("enumDecl");
+			const EnumConstantDecl *child = r.Nodes.getDeclAs<EnumConstantDecl>("enumConst");
+			if (!parent || !child)
+				return;
+
+			parent->dump();
+		});
+		
+		(void)ec;
+		
+	} else if (isa<FunctionDecl>(decl)) {
+	} else {
+		auto &diags = _state.ast().getDiagnostics();
+		unsigned diagID = diags.getCustomDiagID(DiagnosticsEngine::Error, "unsupported symbol definition type");
+		diags.Report(decl->getLocation(), diagID) << decl->getSourceRange();
+	}
+}
+
+void
 SourcePortASTVisitor::recordSymbolUseVisit (DeclRefExpr *useExpr, NamedDecl *declExpr)
 {
 	SmallString<255>	sbuf;
@@ -281,10 +318,15 @@ SourcePortASTVisitor::recordSymbolUseVisit (DeclRefExpr *useExpr, NamedDecl *dec
 	auto symbol = _state.syms()->lookupUSR(*USR).match(
 		[](SymbolRef &s) { return (s); },
 		[&](ftl::otherwise) {
+			auto &smgr = _state.srcManager();
+			auto langOpts = _state.c().getLangOpts();
+
+			getSymbolDefinition(declExpr);
+
 			/* Track single-level macro expansion */
 			auto declLoc = declExpr->getLocation();
 			if (!_state.hasFileEntry(declLoc) && declLoc.isMacroID())
-				declLoc = _state.srcManager().getExpansionLoc(declLoc);
+				declLoc = smgr.getExpansionLoc(declLoc);
 
 			auto s = make_shared<Symbol>(
 			    make_shared<string>(declExpr->getName()),
