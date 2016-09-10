@@ -122,14 +122,5 @@ int main(int argc, const char **argv) {
 	if (ret != 0)
 		return (ret);
 
-	// TODO: make use of syms
-	for (const auto &sym : symtab->getSymbols()) {
-		llvm::outs() << *sym->name() << " defined at " << to_string(sym->location()) << "\n";
-	}
-
-	for (const auto &use : symtab->getSymbolUses()) {
-		llvm::outs() << " -> " << *use->symbol()->name() << "\n";
-	}
-
 	return (0);
 }
