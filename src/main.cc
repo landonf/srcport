@@ -38,7 +38,7 @@ __FBSDID("$FreeBSD$");
 
 #include "llvm/Support/CommandLine.h"
 
-#include "cvisitor.hh"
+#include "ast_index.hh"
 #include "project.hh"
 
 using namespace clang;
@@ -56,71 +56,27 @@ static cl::list<string> HostPaths("host-path", cl::cat(PortToolCategory),
 static cl::list<string> SourcePaths("src-path", cl::cat(PortToolCategory),
     cl::desc("Perform portability analysis within this directory or source file"));
 
-
-class SourcePortASTConsumer : public clang::ASTConsumer {
-public:
-	explicit SourcePortASTConsumer (VisitorState &&state) : _visitor(state) {}
-	virtual void HandleTranslationUnit(clang::ASTContext &ctx) {
-		_visitor.TraverseDecl(ctx.getTranslationUnitDecl());
-	}
-
-private:
-	SourcePortASTVisitor _visitor;
-};
-
-class SourcePortFrontendAction : public clang::ASTFrontendAction {
-public:
-	SourcePortFrontendAction (shared_ptr<SymbolTable> &syms) : _syms(syms) {}
-
-	virtual unique_ptr<clang::ASTConsumer>
-	CreateASTConsumer(clang::CompilerInstance &c, llvm::StringRef inFile)
-	{
-		llvm::outs() << "Processing " << inFile << "\n";
-
-		return unique_ptr<clang::ASTConsumer>(
-		    new SourcePortASTConsumer(VisitorState(_syms, c)));
-	}
-private:
-	shared_ptr<SymbolTable> _syms;
-};
-
-unique_ptr<FrontendActionFactory> newFrontendAnalysisActionFactory(shared_ptr<SymbolTable> &syms) {
-	class SimpleFrontendActionFactory : public FrontendActionFactory {
-	public:
-		SimpleFrontendActionFactory(shared_ptr<SymbolTable> &syms) : _syms(syms) {}
-
-		clang::FrontendAction *
-		create() override
-		{
-			return (new SourcePortFrontendAction(_syms));
-		}
-		  
-	private:
-		  shared_ptr<SymbolTable> _syms;
-	};
-
-	return unique_ptr<FrontendActionFactory>(new SimpleFrontendActionFactory(syms));
-}
-
 int main(int argc, const char **argv) {
-	int ret;
-	
 	CommonOptionsParser opts(argc, argv, PortToolCategory);
-	ClangTool tool(opts.getCompilations(), opts.getSourcePathList());
+		
+	/* Build our project configuration from our command line options */
+	auto project = make_shared<Project>(
+		PathPattern(*&SourcePaths), PathPattern(*&HostPaths)
+	);
+
+	/* Instantiate our clang tool instance */
+	auto cctool = make_shared<ClangTool>(opts.getCompilations(), opts.getSourcePathList());
 
 	/* We need preprocessing information to track defines properly */
-	tool.appendArgumentsAdjuster(getInsertArgumentAdjuster(
+	cctool->appendArgumentsAdjuster(getInsertArgumentAdjuster(
 	    {"-Xclang", "-detailed-preprocessing-record"},
 	    ArgumentInsertPosition::END)
 	);
 
-	auto symtab = make_shared<SymbolTable>(
-	    Project(PathPattern(*&SourcePaths), PathPattern(*&HostPaths))
-	);
+	/* Build our AST index */
+	auto index = ASTIndex::Index(project, cctool);
 
-	ret = tool.run(newFrontendAnalysisActionFactory(symtab).get());
-	if (ret != 0)
-		return (ret);
+	// TODO: Use the ASTIndex for something.
 
 	return (0);
 }

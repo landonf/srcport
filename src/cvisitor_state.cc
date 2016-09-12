@@ -101,14 +101,14 @@ VisitorState::isHostRef (SourceLocation usedAt, SourceLocation definedAt) const
 
 	/* The use location must be within our defined source paths,
 	 * but not explicitly excluded by a host path */
-	if (!locMatches(usedAt, _syms->project().sourcePaths()))
+	if (!locMatches(usedAt, _syms->project()->sourcePaths()))
 		return (false);
 	
-	if (locMatches(usedAt, _syms->project().hostPaths()))
+	if (locMatches(usedAt, _syms->project()->hostPaths()))
 		return (false);
 
 	/* The definition location must be within defined host path */
-	if (!locMatches(definedAt, _syms->project().hostPaths()))
+	if (!locMatches(definedAt, _syms->project()->hostPaths()))
 		return (false);
 
 	return (true);
@@ -117,12 +117,12 @@ VisitorState::isHostRef (SourceLocation usedAt, SourceLocation definedAt) const
 bool
 VisitorState::isHostLoc (const SourceLocation &loc) const
 {
-	return (locMatches(loc, _syms->project().hostPaths()));
+	return (locMatches(loc, _syms->project()->hostPaths()));
 }
 
 bool VisitorState::isSourceLoc (const SourceLocation &loc) const
 {
-	return (locMatches(loc, _syms->project().sourcePaths()));
+	return (locMatches(loc, _syms->project()->sourcePaths()));
 }
 
 string

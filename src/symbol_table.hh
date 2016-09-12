@@ -146,14 +146,11 @@ public:
 	template <typename K, typename V>
 	    using rmultimap = std::unordered_multimap<K, V, sptr_hash<K>, sptr_eqto<K>>;
 	
-	SymbolTable (const Project &project):
+	SymbolTable (ProjectRef &project):
 	    _proj(project)
 	{}
-	SymbolTable (Project &&project):
-	    _proj(std::move(project))
-	{}
 
-	const Project &
+	ProjectRef
 	project () const
 	{
 		return (_proj);
@@ -213,9 +210,12 @@ private:
 	rmultimap<StrRef, SymbolUseRef>		_uses_usr;
 
 	/** Project configuration */
-	Project					_proj;
+	ProjectRef				_proj;
 };
 
+using SymbolTableRef = std::shared_ptr<SymbolTable>;
+
 } /* namespace symtab */
+
 
 #endif /* _SRCPORT_SYMBOL_TABLE_HH_ */

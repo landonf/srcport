@@ -1,6 +1,8 @@
 .PATH: ${.CURDIR}/src
 
-SRCS+=		cvisitor.cc \
+SRCS+=		ast_index.cc \
+		ast_match.cc \
+		cvisitor.cc \
 		cvisitor_state.cc \
 		paths.cc \
 		project.cc \

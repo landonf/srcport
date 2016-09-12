@@ -55,4 +55,6 @@ private:
     PathPattern _hostPaths;
 };
 
+using ProjectRef = std::shared_ptr<Project>;
+
 #endif /* _SRCPORT_PROJECT_HH_ */
