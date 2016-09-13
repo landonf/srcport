@@ -39,6 +39,8 @@
 #include <clang/ASTMatchers/ASTMatchers.h>
 #include <clang/ASTMatchers/ASTMatchFinder.h>
 
+#include <clang/Lex/Preprocessor.h>
+
 #include "project.hh"
 #include "symbol_table.hh"
 
@@ -48,7 +50,7 @@
 class ASTMatchUtil {
 public:
 	ASTMatchUtil (const ProjectRef &project, const clang::ASTContext &ast):
-	    _project(project), _srcManager(ast.getSourceManager())
+	    _project(project), _ast(ast), _srcManager(ast.getSourceManager())
 	{
 	}
 
@@ -69,11 +71,12 @@ public:
 	loc_type	getLocationType (clang::SourceLocation definedAt);
 	bool		isHostRef (clang::SourceLocation usedAt, clang::SourceLocation definedAt);
 
-	const clang::SourceManager &srcManager () { return (_srcManager); }
+	const clang::SourceManager &srcManager () { return (_ast.getSourceManager()); }
 
 private:
-	ProjectRef _project;
-	const clang::SourceManager &_srcManager;
+	ProjectRef			_project;
+	const clang::ASTContext		&_ast;
+	const clang::SourceManager	&_srcManager;
 };
 
 /**
@@ -136,13 +139,19 @@ namespace matchers {
 		template <typename... Ts> using TypeList = clang::ast_matchers::internal::TypeList<Ts...>;
 	}
 
-	AST_MATCHER(Stmt, isMacroBodyExpansion)
+	AST_MATCHER(Stmt, isImmediateMacroBodyExpansion)
 	{
 		const auto &smgr = Finder->getASTContext().getSourceManager();
-		return (smgr.isMacroBodyExpansion(Node.getLocStart()));
+		if (!smgr.isMacroBodyExpansion(Node.getLocStart()))
+			return (false);
+
+		if (!smgr.isAtStartOfImmediateMacroExpansion(Node.getLocStart()))
+			return (false);
+
+		return (true);
 	}
 
-	AST_MATCHER_P(Expr, isSourceExpr, ProjectRef, project)
+	AST_MATCHER_P(Stmt, isSourceExpr, ProjectRef, project)
 	{
 		SourceLocation		 usedAt;
 		ASTMatchUtil		 m(project, Finder->getASTContext());
@@ -178,24 +187,27 @@ namespace matchers {
 
 	AST_POLYMORPHIC_MATCHER_P(isHostSymbolReference, void(internal::TypeList<DeclRefExpr, Stmt>), ProjectRef, project)
 	{
+		ASTMatchUtil	 m(project, Finder->getASTContext());
+		const auto	&smgr = m.srcManager();
 
 		if (!isSourceExpr(project).matches(Node, Finder, Builder))
 			return (false);
 
 		if (auto expr = dyn_cast<DeclRefExpr>(&Node)) {
 			const Decl	*target;
+			const auto	 hostRule = isHostDecl(project);
 
 			target = expr->getFoundDecl()->getCanonicalDecl();
 
-			return (isHostDecl(project).matches(
-			    *target, Finder, Builder));
+			return (hostRule.matches(*target, Finder, Builder));
+		} else if (auto stmt = dyn_cast<Stmt>(&Node)) {
+			auto loc = stmt->getLocStart();
+
+			loc = smgr.getSpellingLoc(loc);
+			return (m.getLocationType(loc) == ASTMatchUtil::LOC_HOST);
+		} else {
+			return (false);
 		}
-
-		// XXX TODO
-		Node.dump();
-		abort();
-
-		return (false);
 	}
 
 } /* namespace matchers */

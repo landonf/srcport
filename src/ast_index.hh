@@ -48,6 +48,24 @@
 #include "symbol_table.hh"
 
 /**
+ * AST Indexing utilities.
+ */
+class ASTIndexUtil {
+public:
+	ASTIndexUtil (symtab::SymbolTableRef &symtab, const clang::ASTContext &ast):
+	    _symtab(symtab), _ast(ast)
+	{ }
+
+	symtab::StrRef		cacheUSR (const clang::Decl *decl);
+	symtab::StrRef		cacheUSR (const clang::MacroDefinitionRecord &macro);
+	symtab::Location	generateLocation (const clang::SourceLocation &loc);
+
+private:
+	symtab::SymbolTableRef		_symtab;
+	const clang::ASTContext		&_ast;
+};
+
+/**
  * AST Index builder.
  */
 class ASTIndexBuilder {
