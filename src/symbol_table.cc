@@ -125,9 +125,8 @@ SymbolTable::addSymbolUse (SymbolUseRef use)
 		return;
 
 	_uses.emplace(use);
-	_usr_cache.emplace(std::cref(*use->USR()), use->USR());
 
-	_uses_usr.emplace(make_pair(use->USR(), use));
+	_uses_usr.emplace(make_pair(use->symbol()->USR(), use));
 	_uses_path.emplace(make_pair(use->location().path(), use));
 }
 	

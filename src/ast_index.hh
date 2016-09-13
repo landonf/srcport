@@ -56,11 +56,20 @@ public:
 	    _symtab(symtab), _ast(ast)
 	{ }
 
-	symtab::StrRef		cacheUSR(const clang::Decl *decl);
+	symtab::SymbolRef	registerSymbol(const clang::NamedDecl &symbol);
+	symtab::SymbolRef	registerSymbol(
+				    const clang::IdentifierInfo &ident,
+				    const clang::MacroDefinition &macro,
+				    clang::Preprocessor &cpp);
+
+	symtab::SymbolUseRef	registerSymbolUse(const clang::Stmt *symbolUse,
+				    const symtab::SymbolRef &symbol);
+
+	symtab::StrRef		cacheUSR(const clang::Decl &decl);
 	symtab::StrRef		cacheUSR(const clang::MacroDefinitionRecord &macro);
 	symtab::Location	generateLocation(const clang::SourceLocation &loc);
 
-	symtab::SymbolDecl	generateDefinition(const clang::Decl &decl);	
+	symtab::SymbolDecl	generateDefinition(const clang::Decl &decl);
 	symtab::SymbolDecl	generateDefinition(const clang::FunctionDecl &decl);
 	symtab::SymbolDecl	generateDefinition(const clang::RecordDecl &decl);
 	symtab::SymbolDecl	generateDefinition(const clang::EnumDecl &decl);

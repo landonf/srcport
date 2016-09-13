@@ -148,6 +148,7 @@ public:
 		(StrRef,	USR)
 	)
 
+public:
 	/** Is this an anonymous (zero-length name) symbol? */
 	bool isAnonymous () const { return (_name->size() == 0); };
 };
@@ -156,8 +157,7 @@ using SymbolRef = std::shared_ptr<Symbol>;
 
 PL_RECORD_STRUCT(SymbolUse,
 	(SymbolRef,		symbol),
-	(Location,		location),
-	(StrRef,		USR)
+	(Location,		location)
 );
 
 using SymbolUseRef = std::shared_ptr<SymbolUse>;

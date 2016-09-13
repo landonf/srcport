@@ -51,12 +51,12 @@ static std::unordered_set<string> seen;
 /**
  * Cache (or return a cached) declaration USR.
  */
-StrRef ASTIndexUtil::cacheUSR(const Decl *decl)
+StrRef ASTIndexUtil::cacheUSR(const Decl &decl)
 {
 	SmallString<255>	sbuf;
 	
 	/* Generate USR string */
-	if (generateUSRForDecl(decl, sbuf))
+	if (generateUSRForDecl(&decl, sbuf))
 		abort();
 
 	return (_symtab->getUSR(sbuf.str()));	
@@ -224,9 +224,78 @@ lambdaSourceFileCallbacks(BeginFn &&begin, EndFn &&end)
 }
 
 /**
+ * Register @p symbol with the symbol table and return the new registration,
+ * or return the existing registration.
+ */
+SymbolRef
+ASTIndexUtil::registerSymbol(const clang::NamedDecl &decl)
+{
+	/* Register or fetch existing symbol */
+	auto USR = cacheUSR(decl);
+
+	return (_symtab->lookupUSR(*USR).match(
+		[](SymbolRef &s) { return (s); },
+		[&](ftl::otherwise) {
+			auto s = make_shared<Symbol>(
+				make_shared<string>(decl.getName()),
+				generateLocation(decl.getLocation()),
+				USR
+			);
+			_symtab->addSymbol(s);
+			return (s);
+		}
+	));
+}
+
+SymbolRef
+ASTIndexUtil::registerSymbol(const clang::IdentifierInfo &ident,
+    const clang::MacroDefinition &macro, clang::Preprocessor &cpp)
+{
+	auto minfo = macro.getMacroInfo();
+	auto mrange = SourceRange(minfo->getDefinitionLoc(), minfo->getDefinitionEndLoc());
+	auto mrec = MacroDefinitionRecord(&ident, mrange);
+
+	/* Register or fetch existing symbol */
+	auto USR = cacheUSR(mrec);
+
+	return (_symtab->lookupUSR(*USR).match(
+		[](SymbolRef &s) { return (s); },
+		[&](ftl::otherwise) {
+			auto s = make_shared<Symbol>(
+				make_shared<string>(ident.getName()),
+				generateLocation(minfo->getDefinitionLoc()),
+				USR
+			);
+			_symtab->addSymbol(s);
+			return (s);
+		}
+	));
+}
+
+/**
+ * Register @p symbolUse for @p symbol to the symbol table.
+ */
+SymbolUseRef
+ASTIndexUtil::registerSymbolUse(const Stmt *symbolUse, const SymbolRef &symbol)
+{
+	auto loc = symbolUse->getLocStart();
+	if (loc.isMacroID())
+		loc = _ast.getSourceManager().getExpansionLoc(loc);
+	
+	auto s = make_shared<SymbolUse>(
+		symbol,
+		generateLocation(loc)
+	);
+
+	_symtab->addSymbolUse(s);
+	return (s);
+}
+
+/**
  * Build the AST index
  */
-void ASTIndexBuilder::build()
+void
+ASTIndexBuilder::build()
 {
 	ASTIndexMatch		 m;
 	const CompilerInstance	*cc = nullptr;
@@ -236,6 +305,7 @@ void ASTIndexBuilder::build()
 		ASTMatchUtil		 mu(_project, *m.Context);
 		const Expr		*src;
 		const NamedDecl		*target;
+		const EnumDecl		*enumParent;
 
 		if (!(src = m.Nodes.getNodeAs<Expr>("source")))
 			return;
@@ -243,35 +313,19 @@ void ASTIndexBuilder::build()
 		if (!(target = m.Nodes.getNodeAs<NamedDecl>("target")))
 			return;
 
-		/* Register or fetch existing symbol */
-		auto USR = iu.cacheUSR(target);
-
-		auto symbol = _symtab->lookupUSR(*USR).match(
-			[](SymbolRef &s) { return (s); },
-			[&](ftl::otherwise) {
-				if (auto *e = m.Nodes.getNodeAs<EnumDecl>("target-parent")) {
-					e->dump();
-				}
-				iu.generateDefinition(*target);
-
-				auto s = make_shared<Symbol>(
-				    make_shared<string>(target->getName()),
-				    iu.generateLocation(target->getLocation()),
-				    USR
-				);
-				_symtab->addSymbol(s);
-				return (s);
-			}
-		);
+		// TODO
+		iu.generateDefinition(*target);
 
 		/* Register symbol use */
-		auto symbolUse = make_shared<SymbolUse>(
-			symbol,
-			iu.generateLocation(src->getLocStart()),
-			USR
-		);
-
-		_symtab->addSymbolUse(symbolUse);
+		iu.registerSymbolUse(src, iu.registerSymbol(*target));
+		
+		/* If we're referencing an enum constant, also include the
+		 * enumeration declaration */
+		enumParent = m.Nodes.getNodeAs<EnumDecl>("target-parent");
+		if (enumParent) {
+			iu.registerSymbolUse(src,
+			    iu.registerSymbol(*enumParent));
+		}
 	};
 
 	/* Find direct named symbol references */
@@ -308,41 +362,17 @@ void ASTIndexBuilder::build()
 			return;
 
 		/* Extract macro info */
-		auto usedAt = mu.srcManager().getExpansionLoc(stmt->getLocStart());
 		auto name = cpp.getImmediateMacroName(stmt->getLocStart());
-		auto *mid = cpp.getIdentifierInfo(name);
-		MacroDefinition mdef = cpp.getMacroDefinitionAtLoc(mid, stmt->getLocStart());
+		auto *ident = cpp.getIdentifierInfo(name);
+
+		MacroDefinition mdef = cpp.getMacroDefinition(ident);
 		MacroInfo *info = mdef.getMacroInfo();
-
-		auto mrange = SourceRange(info->getDefinitionLoc(), info->getDefinitionEndLoc());
-		auto mrec = MacroDefinitionRecord(mid, mrange);
-
+		
 		if (mu.getLocationType(info->getDefinitionLoc()) != ASTMatchUtil::LOC_HOST)
 			return;
-
-		/* Register or fetch existing symbol */
-		auto USR = iu.cacheUSR(mrec);
-		auto symbol = _symtab->lookupUSR(*USR).match(
-			[](SymbolRef &s) { return (s); },
-			[&](ftl::otherwise) {
-				auto s = make_shared<Symbol>(
-				    make_shared<string>(name),
-				    iu.generateLocation(info->getDefinitionLoc()),
-				    USR
-				);
-				_symtab->addSymbol(s);
-				return (s);
-			}
-		);
 		
 		/* Register symbol use */
-		auto symbolUse = make_shared<SymbolUse>(
-		    symbol,
-		    iu.generateLocation(usedAt),
-		    USR
-		);
-
-		_symtab->addSymbolUse(symbolUse);
+		iu.registerSymbolUse(stmt, iu.registerSymbol(*ident, mdef, cpp));
 	});
 
 	/* Keep track of the compiler instance */
@@ -381,7 +411,7 @@ ASTIndex::Index(ProjectRef &project, ASTIndex::ClangToolRef &tool)
 	});
 
 	for (const auto &sym : idx->_symtab->getSymbols())
-		llvm::outs() << "found: " << *sym->name() << "\n";
+		llvm::outs() << "found: " << (sym->isAnonymous() ? string("<anon>") : *sym->name()) << "\n";
 
 	return (idx);
 }
