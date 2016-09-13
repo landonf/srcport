@@ -246,12 +246,6 @@ void ASTIndexBuilder::build()
 			}
 		);
 		
-		if (name == "BWN_BARRIER") {
-			mu.dumpTree(mu.srcManager().getImmediateMacroCallerLoc(stmt->getLocStart()));
-
-			mu.dumpTree(stmt->getLocStart());
-		}
-		
 		/* Register symbol use */
 		auto symbolUse = make_shared<SymbolUse>(
 		    symbol,
