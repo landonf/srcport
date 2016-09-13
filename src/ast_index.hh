@@ -56,12 +56,12 @@ using ASTIndexRef = std::shared_ptr<ASTIndex>;
  */
 class ASTIndexUtil {
 public:
-	ASTIndexUtil (symtab::SymbolTableRef &symtab, const clang::ASTContext &ast):
-	    _symtab(symtab), _ast(ast)
+	ASTIndexUtil (symtab::SymbolTableRef &symtab, clang::ASTUnit &astUnit):
+	    _symtab(symtab), _astUnit(astUnit), _ast(astUnit.getASTContext())
 	{ }
 
 	symtab::SymbolRef	registerSymbol(const clang::NamedDecl &symbol);
-	symtab::SymbolRef	registerSymbol(
+	symtab::SymbolRef	registerSymbol(const clang::Stmt *stmt,
 				    const clang::IdentifierInfo &ident,
 				    const clang::MacroDefinition &macro,
 				    clang::Preprocessor &cpp);
@@ -73,15 +73,10 @@ public:
 	symtab::StrRef		cacheUSR(const clang::MacroDefinitionRecord &macro);
 	symtab::Location	generateLocation(const clang::SourceLocation &loc);
 
-	symtab::SymbolDecl	generateDefinition(const clang::Decl &decl);
-	symtab::SymbolDecl	generateDefinition(const clang::FunctionDecl &decl);
-	symtab::SymbolDecl	generateDefinition(const clang::RecordDecl &decl);
-	symtab::SymbolDecl	generateDefinition(const clang::EnumDecl &decl);
-	symtab::SymbolDecl	generateDefinition(const clang::EnumConstantDecl &decl);
-
 private:
-	symtab::SymbolTableRef		_symtab;
-	const clang::ASTContext		&_ast;
+	symtab::SymbolTableRef	_symtab;
+	clang::ASTUnit		&_astUnit;
+	clang::ASTContext	&_ast;
 };
 
 /**

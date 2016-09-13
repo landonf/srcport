@@ -108,121 +108,6 @@ ASTIndexUtil::generateLocation (const clang::SourceLocation &loc)
 	return (Location(path, line, column));
 }
 
-
-symtab::SymbolDecl
-ASTIndexUtil::generateDefinition(const FunctionDecl &decl)
-{
-	auto name = make_shared<string>(decl.getName());
-	auto retType = make_shared<string>(decl.getReturnType().getAsString());
-	vector<Param> params;
-	
-	for (const auto &param : decl.parameters()) {
-		const auto &nameStr = param->getNameAsString();
-		auto ptype = make_shared<string>(param->getOriginalType().getAsString());
-		auto pname = nameStr.size() > 0 ? ftl::just(make_shared<string>(nameStr)) : ftl::Nothing();
-
-		params.emplace_back(ptype, pname);
-	}
-
-	return (SymbolDecl { ftl::constructor<Func>{}, name, retType, params });
-}
-
-symtab::SymbolDecl
-ASTIndexUtil::generateDefinition(const RecordDecl &decl)
-{
-	auto name = make_shared<string>(decl.getName());
-	const auto *rec = &decl;
-	vector<Field> fields;
-
-	// TODO: incomplete struct definitions
-	if (rec->getDefinition() == nullptr)
-		return (SymbolDecl { ftl::constructor<UnknownDecl>{} });
-	else
-		rec = rec->getDefinition();
-
-	for (const auto &field : rec->fields()) {
-		auto type = make_shared<string>(field->getType().getAsString());
-		auto fname = make_shared<string>(field->getNameAsString());
-
-		fields.emplace_back(type, fname);
-	}
-
-	return (SymbolDecl { ftl::constructor<Struct>{}, name, fields });
-}
-
-symtab::SymbolDecl
-ASTIndexUtil::generateDefinition(const EnumDecl &decl)
-{
-	return (SymbolDecl { ftl::constructor<UnknownDecl>{} });
-}
-
-symtab::SymbolDecl
-ASTIndexUtil::generateDefinition(const EnumConstantDecl &decl)
-{
-	return (SymbolDecl { ftl::constructor<UnknownDecl>{} });
-}
-
-symtab::SymbolDecl
-ASTIndexUtil::generateDefinition(const Decl &decl)
-{
-	if (isa<RecordDecl>(decl)) {
-		return (generateDefinition(cast<RecordDecl>(decl)));
-	} else if (isa<FunctionDecl>(decl)) {
-		return (generateDefinition(cast<FunctionDecl>(decl)));
-	} else if (isa<EnumDecl>(decl)) {
-		llvm::outs() << "generate enum decl for " << cast<EnumDecl>(decl).getName() << "\n";
-		return (generateDefinition(cast<EnumDecl>(decl)));
-	} else if (isa<EnumConstantDecl>(decl)) {
-		llvm::outs() << "generate enum constant for " << cast<EnumConstantDecl>(decl).getName() << "\n";
-		return (generateDefinition(cast<EnumConstantDecl>(decl)));
-	} else {
-		auto &diags = _ast.getDiagnostics();
-		unsigned diagID = diags.getCustomDiagID(
-		    DiagnosticsEngine::Error,
-		    "definition generation unsupported");
-		auto loc = decl.getLocStart();
-		diags.Report(loc, diagID) << decl.getSourceRange();
-	}
-
-	return (SymbolDecl { ftl::constructor<UnknownDecl>{} });
-}
-
-/**
- * Lambda callback support for SourceFileCallbacks.
- */
-template <typename BeginFn, typename EndFn> 
-class LambdaSourceFileCallbacks : public SourceFileCallbacks {
-public:
-	LambdaSourceFileCallbacks (BeginFn begin, EndFn end):
-	    _begin(begin), _end(end)
-	{}
-
-	virtual bool
-	handleBeginSource(CompilerInstance &CI, StringRef Filename) override
-	{
-		return (_begin(CI, Filename));
-	}
-
-	virtual void
-	handleEndSource() override
-	{
-		return (_end());
-	}
-
-private:
-	BeginFn	_begin;
-	EndFn	_end;
-};
-
-template <typename BeginFn, typename EndFn> std::unique_ptr<SourceFileCallbacks>
-lambdaSourceFileCallbacks(BeginFn &&begin, EndFn &&end)
-{
-	return (unique_ptr<SourceFileCallbacks>(
-	    new LambdaSourceFileCallbacks<BeginFn, EndFn>(
-		    std::forward<BeginFn>(begin), std::forward<EndFn>(end))
-	));
-}
-
 /**
  * Register @p symbol with the symbol table and return the new registration,
  * or return the existing registration.
@@ -239,6 +124,7 @@ ASTIndexUtil::registerSymbol(const clang::NamedDecl &decl)
 			auto s = make_shared<Symbol>(
 				make_shared<string>(decl.getName()),
 				generateLocation(decl.getLocation()),
+				Cursor(&decl, &_astUnit),
 				USR
 			);
 			_symtab->addSymbol(s);
@@ -248,8 +134,8 @@ ASTIndexUtil::registerSymbol(const clang::NamedDecl &decl)
 }
 
 SymbolRef
-ASTIndexUtil::registerSymbol(const clang::IdentifierInfo &ident,
-    const clang::MacroDefinition &macro, clang::Preprocessor &cpp)
+ASTIndexUtil::registerSymbol(const Stmt *stmt, const IdentifierInfo &ident,
+    const MacroDefinition &macro, Preprocessor &cpp)
 {
 	auto minfo = macro.getMacroInfo();
 	auto mrange = SourceRange(minfo->getDefinitionLoc(), minfo->getDefinitionEndLoc());
@@ -261,9 +147,11 @@ ASTIndexUtil::registerSymbol(const clang::IdentifierInfo &ident,
 	return (_symtab->lookupUSR(*USR).match(
 		[](SymbolRef &s) { return (s); },
 		[&](ftl::otherwise) {
+			
 			auto s = make_shared<Symbol>(
 				make_shared<string>(ident.getName()),
 				generateLocation(minfo->getDefinitionLoc()),
+				Cursor(MacroRef(stmt), &_astUnit),
 				USR
 			);
 			_symtab->addSymbol(s);
@@ -284,6 +172,7 @@ ASTIndexUtil::registerSymbolUse(const Stmt *symbolUse, const SymbolRef &symbol)
 	
 	auto s = make_shared<SymbolUse>(
 		symbol,
+		Cursor(symbolUse, &_astUnit),
 		generateLocation(loc)
 	);
 
@@ -301,7 +190,7 @@ ASTIndexBuilder::build()
 	ASTUnit		*au = nullptr;
 
 	auto registerSymbolUse = [&](const MatchFinder::MatchResult &m) {
-		ASTIndexUtil		 iu(_symtab, *m.Context);
+		ASTIndexUtil		 iu(_symtab, *au);
 		ASTMatchUtil		 mu(_project, *m.Context);
 		const Expr		*src;
 		const NamedDecl		*target;
@@ -312,9 +201,6 @@ ASTIndexBuilder::build()
 		
 		if (!(target = m.Nodes.getNodeAs<NamedDecl>("target")))
 			return;
-
-		// TODO
-		iu.generateDefinition(*target);
 
 		/* Register symbol use */
 		iu.registerSymbolUse(src, iu.registerSymbol(*target));
@@ -353,7 +239,7 @@ ASTIndexBuilder::build()
 	    isHostSymbolReference(_project))
 	).bind("macro");
 	m.addMatcher(findMacroRefs, [&](const MatchFinder::MatchResult &m) {
-		ASTIndexUtil	 iu(_symtab, *m.Context);
+		ASTIndexUtil	 iu(_symtab, *au);
 		ASTMatchUtil	 mu(_project, *m.Context);
 		auto		&cpp = au->getPreprocessor();
 		const Stmt	*stmt;
@@ -372,7 +258,8 @@ ASTIndexBuilder::build()
 			return;
 		
 		/* Register symbol use */
-		iu.registerSymbolUse(stmt, iu.registerSymbol(*ident, mdef, cpp));
+		iu.registerSymbolUse(stmt, iu.registerSymbol(stmt, *ident, mdef,
+		    cpp));
 	});
 
 	/* Scan all AST units */
@@ -380,13 +267,68 @@ ASTIndexBuilder::build()
 		auto &finder = m.getFinder();
 		au = &*astUnit;
 
-		llvm::outs() << "Scanning " <<
+		llvm::errs() << "Scanning " <<
 		    astUnit->getMainFileName() << "\n";
 
 		finder.matchAST(au->getASTContext());
 	}
 
 	return (_symtab);
+}
+
+static void
+printMacroArgs(raw_ostream &os, const MacroInfo &info)
+{
+	if (!info.isFunctionLike())
+		return;
+
+	os << "(";
+
+	auto args = info.args();
+	auto numArgs = args.size();
+	for (size_t i = 0; i < numArgs; i++) {
+		const auto &arg = args[i];
+		if (i != 0)
+			os << ", ";
+
+		const auto &name = arg->getName();
+
+		if (i+1 == numArgs && name == "__VA_ARGS__") {
+			os << "...";
+		} else {
+			os << name;
+		}
+	}
+
+	if (info.isGNUVarargs())
+		os << "...";
+
+	os << ")";
+}
+
+static void
+printMacroDefinition(raw_ostream &os, const StrRef name, const MacroInfo &info,
+    Preprocessor &cpp)
+{
+	os << "#define\t" << *name;
+	printMacroArgs(os, info);
+
+	if (info.getNumTokens() == 0)
+		return;
+
+	auto tokens = info.tokens();
+
+	if (!tokens.begin()->hasLeadingSpace())
+		os << "\t";
+
+	for (const auto &token : tokens) {
+		SmallString<128> sbuf;
+
+		if (token.hasLeadingSpace())
+			os << ' ';
+
+		os << cpp.getSpelling(token, sbuf);
+	}
 }
 
 /**
@@ -401,14 +343,69 @@ ASTIndex::Build(const ProjectRef &project, const CompilerRef &cc)
 	auto symtab = ASTIndexBuilder(cc, project).build();
 	auto idx = make_shared<ASTIndex>(cc, symtab, AllocKey{});
 
-	// TODO
+	/* Sort symbols by file location */
 	auto syms = vector<SymbolRef>(idx->_symtab->getSymbols().begin(), idx->_symtab->getSymbols().end());
 	std::sort(syms.begin(), syms.end(), [] (const SymbolRef &lhs, const SymbolRef &rhs) {
-	        return (lhs->name() < rhs->name());
-	});
+		if (*lhs->location().path() == *rhs->location().path())
+			return (lhs->location().line() < rhs->location().line());
 
-	for (const auto &sym : idx->_symtab->getSymbols())
-		llvm::outs() << "found: " << (sym->isAnonymous() ? string("<anon>") : *sym->name()) << "\n";
+		return (lhs->location().path()->stringValue() < rhs->location().path()->stringValue());
+	});
+	
+	
+	/** Trim trailing newlines */
+	auto rtrim = [](std::string &s) {
+		s.erase(s.find_last_not_of("\r\n\t")+1);
+	};
+
+	/* Emit definitions */
+	std::shared_ptr<Path> path;
+	for (const auto &sym : syms) {
+		std::string			output;
+		llvm::raw_string_ostream	os(output);
+
+		auto symPath = sym->location().path();
+		if (!path || *path != *symPath) {
+			os << "\n/*\n * Definitions from:\n" <<
+			" *    " << symPath->stringValue() << "\n */\n\n";
+			path = symPath;
+		}
+
+		auto &astUnit = *sym->cursor().unit();
+		auto &langOpts = astUnit.getLangOpts();
+		auto &cpp = astUnit.getPreprocessor();
+
+		PrintingPolicy printPolicy(langOpts);
+		printPolicy.PolishForDeclaration = 1;
+		sym->cursor().node().matchE(
+			[&](const Decl *decl) {
+				/* Don't bother printing the individual
+				 * constants */
+				if (isa<EnumConstantDecl>(decl))
+					return;
+
+				decl->print(os, printPolicy);
+				rtrim(os.str());
+				os << ";";
+			},
+			[&](const Stmt *stmt) {
+				stmt->printPretty(os, nullptr, printPolicy);
+				rtrim(os.str());
+				os << ";";
+			},
+			[&](MacroRef macro) {
+				printMacroDefinition(os, sym->name(),
+				   *macro.getMacroInfo(cpp), cpp);
+			}
+		);
+
+		/* Flush and emit */
+		os.str();
+		if (output.size() > 0) {
+			llvm::outs() << output;
+			llvm::outs() << "\n\n";
+		}
+	}
 
 	return (yield(idx));
 }

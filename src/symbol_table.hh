@@ -36,6 +36,11 @@
 #include <unordered_map>
 #include <unordered_set>
 
+#include <clang/AST/AST.h>
+#include <clang/Frontend/ASTUnit.h>
+
+#include <clang/Lex/Preprocessor.h>
+
 #include <ftl/maybe.h>
 
 #include "record_type.hpp"
@@ -48,6 +53,71 @@ namespace symtab {
 using StrRef = std::shared_ptr<std::string>;
 using PathRef = std::shared_ptr<Path>;
 
+/**
+ * AST macro node. Provides the statements referencing the macro,
+ * for later lookup of the macro info.
+ */
+class MacroRef {
+	PL_RECORD_FIELDS(MacroRef,
+		/** Referencing statement */
+		(const clang::Stmt *,	stmt)
+	)
+
+public:
+	/**
+	 * Use the preprocessor to fetch macro info.
+	 */
+	clang::MacroInfo *getMacroInfo (clang::Preprocessor &cpp) {
+		/* Extract macro info */
+		auto name = cpp.getImmediateMacroName(_stmt->getLocStart());
+		auto *ident = cpp.getIdentifierInfo(name);
+
+		auto mdef = cpp.getMacroDefinition(ident);
+		return (mdef.getMacroInfo());
+	};
+};
+
+/**
+ * AST cursor node reference.
+ */
+using CursorNode = ftl::sum_type<
+	const clang::Stmt *,
+	const clang::Decl *,
+	MacroRef
+>;
+
+/**
+ * AST node reference.
+ */
+class Cursor {
+public:
+	PL_RECORD_FIELDS(Cursor,
+		/** Referenced AST node */
+		(CursorNode,		node),
+
+		/** Containing AST unit */
+		(clang::ASTUnit *,	unit)
+	)
+
+public:
+	Cursor (const clang::Decl *decl, clang::ASTUnit *astUnit):
+	    Cursor(CursorNode { ftl::constructor<const clang::Decl *>{}, decl },
+		astUnit)
+	{}
+
+	Cursor (const clang::Stmt *stmt, clang::ASTUnit *astUnit):
+	    Cursor(CursorNode { ftl::constructor<const clang::Stmt *>{}, stmt },
+		astUnit)
+	{}
+
+	Cursor (const MacroRef &macro, clang::ASTUnit *astUnit):
+	    Cursor(CursorNode { ftl::constructor<MacroRef>{}, macro }, astUnit)
+	{}
+};
+
+/**
+ * Source code location.
+ */
 class Location {
 	PL_RECORD_FIELDS(Location,
 		(PathRef,	path),
@@ -59,92 +129,14 @@ class Location {
 std::string to_string (const Location &l);
 
 /**
- * Function parameter definition.
+ * Source code symbol definition.
  */
-PL_RECORD_STRUCT(Param,
-	(StrRef,		typed),
-	(ftl::maybe<StrRef>,	name)
-);
-
-/**
- * Function definition.
- */
-class Func {
-public:
-	Func (StrRef name, StrRef returnType, std::vector<Param> params):
-	    _name(name), _retType(returnType), _params(params)
-	{
-
-	}
-
-	const StrRef &name () const { return (_name); }
-	const StrRef &retType () const { return (_retType); }
-	const std::vector<Param> &params () const { return (_params); }
-
-private:
-	StrRef			_name;
-	StrRef			_retType;
-	std::vector<Param>	_params;
-};
-
-
-/**
- * Field definition.
- */
-PL_RECORD_STRUCT(Field,
-	(StrRef,	typed),
-	(StrRef,	name)
-);
-
-/**
- * Structure definition.
- */
-class Struct {
-public:
-	Struct (StrRef name, std::vector<Field> fields):
-	    _name(name), _fields(fields)
-	{
-
-	}
-
-	const StrRef &name () const { return (_name); }
-	const std::vector<Field> &fields () const { return (_fields); }
-
-private:
-	StrRef			_name;
-	std::vector<Field>	_fields;
-};
-
-/**
- * Enum constant definition.
- */
-PL_RECORD_STRUCT(EnumConst,
-	(StrRef,		name),
-	(ftl::maybe<StrRef>,	value),
-	(StrRef,		parentUSR)
-);
-
-/**
- * Enum definition record.
- */
-PL_RECORD_STRUCT(Enum,
-	(ftl::maybe<StrRef>,		name),
-	(std::vector<EnumConst>,	enums)
-);
-
-class UnknownDecl {
-public:
-	UnknownDecl () {};
-	~UnknownDecl () {};
-};
-
-using SymbolDecl = ftl::sum_type<Func, Struct, Enum, EnumConst, UnknownDecl>;
-
 class Symbol {
 public:
 	PL_RECORD_FIELDS(Symbol,
 		(StrRef,	name),
 		(Location,	location),
+		(Cursor,	cursor),
 		(StrRef,	USR)
 	)
 
@@ -156,8 +148,9 @@ public:
 using SymbolRef = std::shared_ptr<Symbol>;
 
 PL_RECORD_STRUCT(SymbolUse,
-	(SymbolRef,		symbol),
-	(Location,		location)
+	(SymbolRef,	symbol),
+	(Cursor,	cursor),
+	(Location,	location)
 );
 
 using SymbolUseRef = std::shared_ptr<SymbolUse>;

@@ -70,22 +70,4 @@ Compiler::Compiler(unique_ptr<ClangTool> &tool,
 	_cctool = std::move(tool);
 	for (auto &&astUnit : astUnits)
 		_astUnits.push_back(std::move(astUnit));
-
-	for (const auto &astUnit : _astUnits)
-		llvm::outs() << astUnit->getMainFileName() << "\n";
-
 }
-
-#if 0
-Compiler::Compiler(ClangToolPtr &cctool, const std::vector<ASTUnitPtr> &asts,
-    const AllocKey &key):
-    _cctool(std::move(cctool))
-{
-	for (auto &&astUnit : *asts)
-		_asts.emplace_back(std::move());
-
-
-	for (const auto &astUnit : *_asts)
-		llvm::outs() << astUnit->getMainFileName() << "\n";
-}
-#endif
