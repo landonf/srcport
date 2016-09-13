@@ -210,20 +210,56 @@ void ASTIndexBuilder::build()
 	    isHostSymbolReference(_project))
 	).bind("macro");
 	m.addMatcher(findMacroRefs, [&](const MatchFinder::MatchResult &m) {
+		ASTIndexUtil	 iu(_symtab, *m.Context);
 		ASTMatchUtil	 mu(_project, *m.Context);
+		auto		&cpp = cc->getPreprocessor();
 		const Stmt	*stmt;
 
 		if (!(stmt = m.Nodes.getNodeAs<Stmt>("macro")))
 			return;
 
-		auto name = cc->getPreprocessor().getImmediateMacroName(stmt->getLocStart());
-		
-		if (seen.count(name))
-			return;
-		else
-			seen.emplace(name);
+		/* Extract macro info */
+		auto usedAt = mu.srcManager().getExpansionLoc(stmt->getLocStart());
+		auto name = cpp.getImmediateMacroName(stmt->getLocStart());
+		auto *mid = cpp.getIdentifierInfo(name);
+		MacroDefinition mdef = cpp.getMacroDefinitionAtLoc(mid, stmt->getLocStart());
+		MacroInfo *info = mdef.getMacroInfo();
 
-		llvm::outs() << "macro-ref: " << name << "\n";
+		auto mrange = SourceRange(info->getDefinitionLoc(), info->getDefinitionEndLoc());
+		auto mrec = MacroDefinitionRecord(mid, mrange);
+
+		if (mu.getLocationType(info->getDefinitionLoc()) != ASTMatchUtil::LOC_HOST)
+			return;
+
+		/* Register or fetch existing symbol */
+		auto USR = iu.cacheUSR(mrec);
+		auto symbol = _symtab->lookupUSR(*USR).match(
+			[](SymbolRef &s) { return (s); },
+			[&](ftl::otherwise) {
+				auto s = make_shared<Symbol>(
+				    make_shared<string>(name),
+				    iu.generateLocation(info->getDefinitionLoc()),
+				    USR
+				);
+				_symtab->addSymbol(s);
+				return (s);
+			}
+		);
+		
+		if (name == "BWN_BARRIER") {
+			mu.dumpTree(mu.srcManager().getImmediateMacroCallerLoc(stmt->getLocStart()));
+
+			mu.dumpTree(stmt->getLocStart());
+		}
+		
+		/* Register symbol use */
+		auto symbolUse = make_shared<SymbolUse>(
+		    symbol,
+		    iu.generateLocation(usedAt),
+		    USR
+		);
+
+		_symtab->addSymbolUse(symbolUse);
 	});
 
 	/* Keep track of the compiler instance */
