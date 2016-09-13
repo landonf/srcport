@@ -286,6 +286,11 @@ ASTIndex::Index(ProjectRef &project, ASTIndex::ClangToolRef &tool)
 	builder.build();
 
 	// TODO
+	auto syms = vector<SymbolRef>(idx->_symtab->getSymbols().begin(), idx->_symtab->getSymbols().end());
+	std::sort(syms.begin(), syms.end(), [] (const SymbolRef &lhs, const SymbolRef &rhs) {
+	        return (lhs->name() < rhs->name());
+	});
+
 	for (const auto &sym : idx->_symtab->getSymbols())
 		llvm::outs() << "found: " << *sym->name() << "\n";
 
