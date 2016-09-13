@@ -108,6 +108,85 @@ ASTIndexUtil::generateLocation (const clang::SourceLocation &loc)
 	return (Location(path, line, column));
 }
 
+
+symtab::SymbolDecl
+ASTIndexUtil::generateDefinition(const FunctionDecl &decl)
+{
+	auto name = make_shared<string>(decl.getName());
+	auto retType = make_shared<string>(decl.getReturnType().getAsString());
+	vector<Param> params;
+	
+	for (const auto &param : decl.parameters()) {
+		const auto &nameStr = param->getNameAsString();
+		auto ptype = make_shared<string>(param->getOriginalType().getAsString());
+		auto pname = nameStr.size() > 0 ? ftl::just(make_shared<string>(nameStr)) : ftl::Nothing();
+
+		params.emplace_back(ptype, pname);
+	}
+
+	return (SymbolDecl { ftl::constructor<Func>{}, name, retType, params });
+}
+
+symtab::SymbolDecl
+ASTIndexUtil::generateDefinition(const RecordDecl &decl)
+{
+	auto name = make_shared<string>(decl.getName());
+	const auto *rec = &decl;
+	vector<Field> fields;
+
+	// TODO: incomplete struct definitions
+	if (rec->getDefinition() == nullptr)
+		return (SymbolDecl { ftl::constructor<UnknownDecl>{} });
+	else
+		rec = rec->getDefinition();
+
+	for (const auto &field : rec->fields()) {
+		auto type = make_shared<string>(field->getType().getAsString());
+		auto fname = make_shared<string>(field->getNameAsString());
+
+		fields.emplace_back(type, fname);
+	}
+
+	return (SymbolDecl { ftl::constructor<Struct>{}, name, fields });
+}
+
+symtab::SymbolDecl
+ASTIndexUtil::generateDefinition(const EnumDecl &decl)
+{
+	return (SymbolDecl { ftl::constructor<UnknownDecl>{} });
+}
+
+symtab::SymbolDecl
+ASTIndexUtil::generateDefinition(const EnumConstantDecl &decl)
+{
+	return (SymbolDecl { ftl::constructor<UnknownDecl>{} });
+}
+
+symtab::SymbolDecl
+ASTIndexUtil::generateDefinition(const Decl &decl)
+{
+	if (isa<RecordDecl>(decl)) {
+		return (generateDefinition(cast<RecordDecl>(decl)));
+	} else if (isa<FunctionDecl>(decl)) {
+		return (generateDefinition(cast<FunctionDecl>(decl)));
+	} else if (isa<EnumDecl>(decl)) {
+		llvm::outs() << "generate enum decl for " << cast<EnumDecl>(decl).getName() << "\n";
+		return (generateDefinition(cast<EnumDecl>(decl)));
+	} else if (isa<EnumConstantDecl>(decl)) {
+		llvm::outs() << "generate enum constant for " << cast<EnumConstantDecl>(decl).getName() << "\n";
+		return (generateDefinition(cast<EnumConstantDecl>(decl)));
+	} else {
+		auto &diags = _ast.getDiagnostics();
+		unsigned diagID = diags.getCustomDiagID(
+		    DiagnosticsEngine::Error,
+		    "definition generation unsupported");
+		auto loc = decl.getLocStart();
+		diags.Report(loc, diagID) << decl.getSourceRange();
+	}
+
+	return (SymbolDecl { ftl::constructor<UnknownDecl>{} });
+}
+
 /**
  * Lambda callback support for SourceFileCallbacks.
  */
@@ -170,6 +249,8 @@ void ASTIndexBuilder::build()
 		auto symbol = _symtab->lookupUSR(*USR).match(
 			[](SymbolRef &s) { return (s); },
 			[&](ftl::otherwise) {
+				iu.generateDefinition(*target);
+
 				auto s = make_shared<Symbol>(
 				    make_shared<string>(target->getName()),
 				    iu.generateLocation(target->getLocation()),

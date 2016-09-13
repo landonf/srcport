@@ -58,6 +58,71 @@ class Location {
 
 std::string to_string (const Location &l);
 
+/**
+ * Function parameter definition.
+ */
+PL_RECORD_STRUCT(Param,
+	(StrRef,		typed),
+	(ftl::maybe<StrRef>,	name)
+);
+
+/**
+ * Function definition.
+ */
+class Func {
+public:
+	Func (StrRef name, StrRef returnType, std::vector<Param> params):
+	    _name(name), _retType(returnType), _params(params)
+	{
+
+	}
+
+	const StrRef &name () const { return (_name); }
+	const StrRef &retType () const { return (_retType); }
+	const std::vector<Param> &params () const { return (_params); }
+
+private:
+	StrRef			_name;
+	StrRef			_retType;
+	std::vector<Param>	_params;
+};
+
+
+/**
+ * Field definition.
+ */
+PL_RECORD_STRUCT(Field,
+	(StrRef,	typed),
+	(StrRef,	name)
+);
+
+/**
+ * Structure definition.
+ */
+class Struct {
+public:
+	Struct (StrRef name, std::vector<Field> fields):
+	    _name(name), _fields(fields)
+	{
+
+	}
+
+	const StrRef &name () const { return (_name); }
+	const std::vector<Field> &fields () const { return (_fields); }
+
+private:
+	StrRef			_name;
+	std::vector<Field>	_fields;
+};
+
+class UnknownDecl {
+public:
+	UnknownDecl () {};
+	~UnknownDecl () {};
+};
+
+using SymbolDecl = ftl::sum_type<Func, Struct, UnknownDecl>;
+
 PL_RECORD_STRUCT(Symbol,
 	(StrRef,	name),
 	(Location,	location),
