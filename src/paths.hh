@@ -58,6 +58,8 @@ public:
 		return _str;
 	}
 
+	Path basename () const;
+
 	bool inNormalForm () const;
 	std::vector<std::string> split (bool normalize = true) const;
 	Path normalize () const;

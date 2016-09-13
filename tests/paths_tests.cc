@@ -93,6 +93,11 @@ TEST_CASE("path") {
 			const auto split = p.split(false);
 			REQUIRE(split == (vector<string> { "/", "foo", "bar" }));
 		}
+		
+		THEN("basename should return the last component") {
+			const auto rel = p.basename();
+			REQUIRE(rel == Path("bar"));
+		}
 	}
 
 	GIVEN("a set of child and parent paths") {

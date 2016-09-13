@@ -265,6 +265,21 @@ Path::split (bool normalize) const
 }
 
 /**
+ * Return a relative path containing only the final component.
+ */
+Path
+Path::basename() const
+{
+	/* Find last '/' */
+	auto end = _str.find_last_of('/');
+	if (end == string::npos)
+		return (*this);
+
+	return Path(_str.substr(end + 1));
+}
+
+
+/**
  * Return a normalized representation of this path, trimming redundant '//'
  * sequences, removing any terminating '/', removing '/./', and applying
  * references to '/../'.
