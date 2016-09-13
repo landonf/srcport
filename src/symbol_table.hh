@@ -115,19 +115,42 @@ private:
 	std::vector<Field>	_fields;
 };
 
+/**
+ * Enum constant definition.
+ */
+PL_RECORD_STRUCT(EnumConst,
+	(StrRef,		name),
+	(ftl::maybe<StrRef>,	value),
+	(StrRef,		parentUSR)
+);
+
+/**
+ * Enum definition record.
+ */
+PL_RECORD_STRUCT(Enum,
+	(ftl::maybe<StrRef>,		name),
+	(std::vector<EnumConst>,	enums)
+);
+
 class UnknownDecl {
 public:
 	UnknownDecl () {};
 	~UnknownDecl () {};
 };
 
-using SymbolDecl = ftl::sum_type<Func, Struct, UnknownDecl>;
+using SymbolDecl = ftl::sum_type<Func, Struct, Enum, EnumConst, UnknownDecl>;
 
-PL_RECORD_STRUCT(Symbol,
-	(StrRef,	name),
-	(Location,	location),
-	(StrRef,	USR)
-);
+class Symbol {
+public:
+	PL_RECORD_FIELDS(Symbol,
+		(StrRef,	name),
+		(Location,	location),
+		(StrRef,	USR)
+	)
+
+	/** Is this an anonymous (zero-length name) symbol? */
+	bool isAnonymous () const { return (_name->size() == 0); };
+};
 
 using SymbolRef = std::shared_ptr<Symbol>;
 

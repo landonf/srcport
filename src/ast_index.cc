@@ -249,6 +249,9 @@ void ASTIndexBuilder::build()
 		auto symbol = _symtab->lookupUSR(*USR).match(
 			[](SymbolRef &s) { return (s); },
 			[&](ftl::otherwise) {
+				if (auto *e = m.Nodes.getNodeAs<EnumDecl>("target-parent")) {
+					e->dump();
+				}
 				iu.generateDefinition(*target);
 
 				auto s = make_shared<Symbol>(
@@ -274,7 +277,12 @@ void ASTIndexBuilder::build()
 	/* Find direct named symbol references */
 	m.addMatcher(declRefExpr(allOf(
 	    isHostSymbolReference(_project),
-	    hasDeclaration(namedDecl().bind("target"))
+	    hasDeclaration(namedDecl(
+		anyOf(
+			hasParent(enumDecl().bind("target-parent")),
+			anything()
+		)
+	    ).bind("target"))
 	)).bind("source"), registerSymbolUse);
 
 	/* Find type references, including implicit type references by way
