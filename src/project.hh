@@ -41,8 +41,6 @@
 #include "error.hh"
 #include "paths.hh"
 
-template<typename T> using result = ftl::sum_type<Error, T>;
-
 class Project {
 public:
     Project (PathPattern &&sourcePaths, PathPattern &&hostPaths = PathPattern()) : _sourcePaths(std::move(sourcePaths)), _hostPaths(std::move(hostPaths)) {}

@@ -396,8 +396,8 @@ ASTIndexBuilder::build()
  * @param project Project configuration.
  * @param tool Tool instance initialized for use with @p project.
  */
-std::shared_ptr<ASTIndex>
-ASTIndex::Index(ProjectRef &project, ASTIndex::ClangToolRef &tool)
+result<ASTIndexRef>
+ASTIndex::Build(ProjectRef &project, ASTIndex::ClangToolRef &tool)
 {
 	auto idx = make_shared<ASTIndex>(project, tool, AllocKey{});
 
@@ -413,5 +413,5 @@ ASTIndex::Index(ProjectRef &project, ASTIndex::ClangToolRef &tool)
 	for (const auto &sym : idx->_symtab->getSymbols())
 		llvm::outs() << "found: " << (sym->isAnonymous() ? string("<anon>") : *sym->name()) << "\n";
 
-	return (idx);
+	return (yield(idx));
 }

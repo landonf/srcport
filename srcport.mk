@@ -2,6 +2,7 @@
 
 SRCS+=		ast_index.cc \
 		ast_match.cc \
+		compiler.cc \
 		paths.cc \
 		project.cc \
 		symbol_table.cc

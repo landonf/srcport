@@ -24,50 +24,49 @@
  * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
  * THE POSSIBILITY OF SUCH DAMAGES.
- * 
- * $FreeBSD$
  */
 
-#ifndef _SRCPORT_RESULT_HH_
-#define _SRCPORT_RESULT_HH_
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD$");
 
-#include <ftl/either.h>
+#include <string>
 
-#include "error.hh"
+#include "compiler.hh"
 
-/** Disjoint union representing either an Error, or a valid result of
- *  type @p T */
-template<typename T> using result = ftl::either<Error, T>;
+using namespace std;
 
-template<typename T> result<T> failed (const Error &error) {
-	return (result<T>{ftl::constructor<Error>(), error});
-}
+using namespace clang;
+using namespace clang::tooling;
 
-/**
- * Produce an error result<T> value with the given message.
- */
-template<typename T> result<T>
-fail(const std::string &msg)
+result<CompilerRef>
+Compiler::Create(const Compiler::CompilationDatabase &cdb,
+    vector<string> sourcePaths)
 {
-	return ftl::make_left<T>(Error(msg, ENXIO));
+	int ret;
+
+	/* Instantiate our clang tool instance */
+	auto cctool = unique_ptr<ClangTool>(new ClangTool(cdb, sourcePaths));
+
+	/* We need preprocessing information to track defines properly */
+	cctool->appendArgumentsAdjuster(getInsertArgumentAdjuster(
+	    {"-Xclang", "-detailed-preprocessing-record"},
+	    ArgumentInsertPosition::END)
+	);
+
+	/* Try to build our AST list */
+	auto asts = unique_ptr<ASTUnitList>(new ASTUnitList());
+	if ((ret = cctool->buildASTs(*asts))) {
+		return (failed<CompilerRef>(Error("Compiler invocation failed",
+		    ENXIO)));
+	}
+
+	/* Return our compiler instance */
+	return (success(make_shared<Compiler>(cctool, asts, AllocKey{})));
 }
 
-/**
- * Produce an error result<T> value with the given errno value.
- */
-template<typename T> result<T>
-fail(int err)
+Compiler::Compiler(Compiler::ClangToolPtr &cctool, Compiler::ASTUnitListPtr &asts,
+    const Compiler::AllocKey &key):
+    _cctool(std::move(cctool)), _asts(std::move(asts))
 {
-	return ftl::make_left<T>(Error(err));
-}
 
-/**
- * Produce a successful result<T> value.
- */
-template<typename T> auto
-yield(T &&t) -> decltype(ftl::make_right<Error>(std::forward<T>(t)))
-{
-	return ftl::make_right<Error>(std::forward<T>(t));
 }
-
-#endif /* _SRCPORT_RESULT_HH_ */

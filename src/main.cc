@@ -38,6 +38,7 @@ __FBSDID("$FreeBSD$");
 
 #include "llvm/Support/CommandLine.h"
 
+#include "compiler.hh"
 #include "ast_index.hh"
 #include "project.hh"
 
@@ -57,6 +58,8 @@ static cl::list<string> SourcePaths("src-path", cl::cat(PortToolCategory),
     cl::desc("Perform portability analysis within this directory or source file"));
 
 int main(int argc, const char **argv) {
+	using ftl::operator>>=;
+
 	CommonOptionsParser opts(argc, argv, PortToolCategory);
 		
 	/* Build our project configuration from our command line options */
@@ -67,16 +70,27 @@ int main(int argc, const char **argv) {
 	/* Instantiate our clang tool instance */
 	auto cctool = make_shared<ClangTool>(opts.getCompilations(), opts.getSourcePathList());
 
-	/* We need preprocessing information to track defines properly */
-	cctool->appendArgumentsAdjuster(getInsertArgumentAdjuster(
-	    {"-Xclang", "-detailed-preprocessing-record"},
-	    ArgumentInsertPosition::END)
-	);
+	/* Instantiate our compiler instance */
+	auto compiler = Compiler::Create(opts.getCompilations(),
+	    opts.getSourcePathList());
 
 	/* Build our AST index */
-	auto index = ASTIndex::Index(project, cctool);
+	auto index = compiler >>= [&](const CompilerRef &cc) {
+		return (ASTIndex::Build(project, cctool));
+	};
 
 	// TODO: Use the ASTIndex for something.
+
+	return (index.match(
+		[](const Error &e) {
+			llvm::errs() << "processing failed: " <<
+			    e.message() << "\n";
+			return (EXIT_FAILURE);
+		},
+		[](ftl::otherwise) {
+			return (0);
+		}
+	));
 
 	return (0);
 }

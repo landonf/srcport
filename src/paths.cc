@@ -290,7 +290,7 @@ Path::resolve () const
 	char buf[PATH_MAX];
 
 	if (realpath(_str.c_str(), buf) == NULL)
-		return (result<Path>{constructor<Error>(), errno});
+		return fail<Path>(errno);
 	else
-		return (result<Path>{constructor<Path>(), Path(buf)});
+		return yield(Path(buf));
 }

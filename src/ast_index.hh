@@ -47,6 +47,9 @@
 #include "project.hh"
 #include "symbol_table.hh"
 
+class ASTIndex;
+using ASTIndexRef = std::shared_ptr<ASTIndex>;
+
 /**
  * AST Indexing utilities.
  */
@@ -107,7 +110,8 @@ private:
 	using ClangToolRef = std::shared_ptr<clang::tooling::ClangTool>;
 
 public:
-	static std::shared_ptr<ASTIndex> Index (ProjectRef &project, ClangToolRef &tool);
+	static result<ASTIndexRef>	Build(ProjectRef &project,
+					    ClangToolRef &tool);
 
 	ASTIndex (ProjectRef &project, ClangToolRef &tool, const AllocKey &key): 
 	    _project(project), _tool(tool), _symtab(std::make_shared<symtab::SymbolTable>(project))

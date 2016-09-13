@@ -28,46 +28,51 @@
  * $FreeBSD$
  */
 
-#ifndef _SRCPORT_RESULT_HH_
-#define _SRCPORT_RESULT_HH_
+#ifndef _SRCPORT_COMPILER_HH_
+#define _SRCPORT_COMPILER_HH_
 
-#include <ftl/either.h>
+#include <clang/Tooling/Tooling.h>
 
-#include "error.hh"
+#include <clang/AST/AST.h>
 
-/** Disjoint union representing either an Error, or a valid result of
- *  type @p T */
-template<typename T> using result = ftl::either<Error, T>;
+#include <clang/ASTMatchers/ASTMatchers.h>
+#include <clang/ASTMatchers/ASTMatchFinder.h>
 
-template<typename T> result<T> failed (const Error &error) {
-	return (result<T>{ftl::constructor<Error>(), error});
-}
+#include "result.hh"
 
-/**
- * Produce an error result<T> value with the given message.
- */
-template<typename T> result<T>
-fail(const std::string &msg)
-{
-	return ftl::make_left<T>(Error(msg, ENXIO));
-}
+class Compiler;
+using CompilerRef = std::shared_ptr<Compiler>;
 
 /**
- * Produce an error result<T> value with the given errno value.
+ * Compiler State
  */
-template<typename T> result<T>
-fail(int err)
-{
-	return ftl::make_left<T>(Error(err));
-}
+class Compiler : public std::enable_shared_from_this<Compiler> {
+private:
+	struct AllocKey {};
 
-/**
- * Produce a successful result<T> value.
- */
-template<typename T> auto
-yield(T &&t) -> decltype(ftl::make_right<Error>(std::forward<T>(t)))
-{
-	return ftl::make_right<Error>(std::forward<T>(t));
-}
+	using CompilationDatabase = clang::tooling::CompilationDatabase;
 
-#endif /* _SRCPORT_RESULT_HH_ */
+	using ClangToolPtr = std::unique_ptr<clang::tooling::ClangTool>;
+	using ASTUnitPtr = std::unique_ptr<clang::ASTUnit>;
+	using ASTUnitList = std::vector<ASTUnitPtr>;
+	using ASTUnitListPtr = std::unique_ptr<ASTUnitList>;
+
+public:
+	static result<CompilerRef>	Create(const CompilationDatabase &cdb,
+					     std::vector<std::string> sourcePaths);
+
+	Compiler (ClangToolPtr &tool, ASTUnitListPtr &asts,
+	    const AllocKey &key);
+
+private:
+	ClangToolPtr		_cctool;	/**< clang tool instance */
+	ASTUnitListPtr		_asts;		/**< parsed AST objects for our
+						     input source files; these
+						     own all AST nodes
+						     allocations */
+
+};
+
+using CompilerRef = std::shared_ptr<Compiler>;
+
+#endif /* _SRCPORT_COMPILER_HH_ */
