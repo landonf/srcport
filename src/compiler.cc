@@ -31,6 +31,8 @@ __FBSDID("$FreeBSD$");
 
 #include <string>
 
+#include <ftl/vector.h>
+
 #include "compiler.hh"
 
 using namespace std;
@@ -54,19 +56,36 @@ Compiler::Create(const Compiler::CompilationDatabase &cdb,
 	);
 
 	/* Try to build our AST list */
-	auto asts = unique_ptr<ASTUnitList>(new ASTUnitList());
-	if ((ret = cctool->buildASTs(*asts))) {
-		return (failed<CompilerRef>(Error("Compiler invocation failed",
-		    ENXIO)));
-	}
+	auto asts = std::vector<unique_ptr<ASTUnit>>();
+	if ((ret = cctool->buildASTs(asts)))
+		return (fail<CompilerRef>("Compiler invocation failed"));
 
 	/* Return our compiler instance */
-	return (success(make_shared<Compiler>(cctool, asts, AllocKey{})));
+	return (yield(make_shared<Compiler>(cctool, asts, AllocKey{})));
 }
 
-Compiler::Compiler(Compiler::ClangToolPtr &cctool, Compiler::ASTUnitListPtr &asts,
-    const Compiler::AllocKey &key):
-    _cctool(std::move(cctool)), _asts(std::move(asts))
+Compiler::Compiler(unique_ptr<ClangTool> &tool,
+    vector<unique_ptr<ASTUnit>> &astUnits, const Compiler::AllocKey &key)
 {
+	_cctool = std::move(tool);
+	for (auto &&astUnit : astUnits)
+		_astUnits.push_back(std::move(astUnit));
+
+	for (const auto &astUnit : _astUnits)
+		llvm::outs() << astUnit->getMainFileName() << "\n";
 
 }
+
+#if 0
+Compiler::Compiler(ClangToolPtr &cctool, const std::vector<ASTUnitPtr> &asts,
+    const AllocKey &key):
+    _cctool(std::move(cctool))
+{
+	for (auto &&astUnit : *asts)
+		_asts.emplace_back(std::move());
+
+
+	for (const auto &astUnit : *_asts)
+		llvm::outs() << astUnit->getMainFileName() << "\n";
+}
+#endif

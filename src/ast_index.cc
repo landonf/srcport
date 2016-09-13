@@ -294,11 +294,11 @@ ASTIndexUtil::registerSymbolUse(const Stmt *symbolUse, const SymbolRef &symbol)
 /**
  * Build the AST index
  */
-void
+symtab::SymbolTableRef
 ASTIndexBuilder::build()
 {
-	ASTIndexMatch		 m;
-	const CompilerInstance	*cc = nullptr;
+	ASTIndexMatch	 m;
+	ASTUnit		*au = nullptr;
 
 	auto registerSymbolUse = [&](const MatchFinder::MatchResult &m) {
 		ASTIndexUtil		 iu(_symtab, *m.Context);
@@ -355,7 +355,7 @@ ASTIndexBuilder::build()
 	m.addMatcher(findMacroRefs, [&](const MatchFinder::MatchResult &m) {
 		ASTIndexUtil	 iu(_symtab, *m.Context);
 		ASTMatchUtil	 mu(_project, *m.Context);
-		auto		&cpp = cc->getPreprocessor();
+		auto		&cpp = au->getPreprocessor();
 		const Stmt	*stmt;
 
 		if (!(stmt = m.Nodes.getNodeAs<Stmt>("macro")))
@@ -375,34 +375,31 @@ ASTIndexBuilder::build()
 		iu.registerSymbolUse(stmt, iu.registerSymbol(*ident, mdef, cpp));
 	});
 
-	/* Keep track of the compiler instance */
-	auto callbacks = lambdaSourceFileCallbacks(
-		[&](CompilerInstance &CI, StringRef Filename) {
-			llvm::outs() << "Processing " << Filename << "\n";
-			cc = &CI;
-			return (true);
-		},
-		[&]() {
-			cc = nullptr;
-		}
-	);
+	/* Scan all AST units */
+	for (const auto &astUnit : _cc->ASTUnits()) {
+		auto &finder = m.getFinder();
+		au = &*astUnit;
 
-	_tool->run(newFrontendActionFactory(&m.getFinder(), callbacks.get()).get());	
+		llvm::outs() << "Scanning " <<
+		    astUnit->getMainFileName() << "\n";
+
+		finder.matchAST(au->getASTContext());
+	}
+
+	return (_symtab);
 }
 
 /**
- * Build and return an index for @p project using @p tool.
+ * Build and return an index for @p project using @p cc.
  * 
  * @param project Project configuration.
- * @param tool Tool instance initialized for use with @p project.
+ * @param cc Compiler instance initialized for use with @p project.
  */
 result<ASTIndexRef>
-ASTIndex::Build(ProjectRef &project, ASTIndex::ClangToolRef &tool)
+ASTIndex::Build(const ProjectRef &project, const CompilerRef &cc)
 {
-	auto idx = make_shared<ASTIndex>(project, tool, AllocKey{});
-
-	ASTIndexBuilder builder(idx->_tool, idx->_symtab);
-	builder.build();
+	auto symtab = ASTIndexBuilder(cc, project).build();
+	auto idx = make_shared<ASTIndex>(cc, symtab, AllocKey{});
 
 	// TODO
 	auto syms = vector<SymbolRef>(idx->_symtab->getSymbols().begin(), idx->_symtab->getSymbols().end());

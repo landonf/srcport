@@ -44,6 +44,7 @@
 #include <clang/ASTMatchers/ASTMatchers.h>
 #include <clang/ASTMatchers/ASTMatchFinder.h>
 
+#include "compiler.hh"
 #include "project.hh"
 #include "symbol_table.hh"
 
@@ -87,16 +88,18 @@ private:
  * AST Index builder.
  */
 class ASTIndexBuilder {
-	using ClangToolRef = std::shared_ptr<clang::tooling::ClangTool>;
 public:
-	ASTIndexBuilder (ClangToolRef &tool, symtab::SymbolTableRef &symtab):
-	    _project(symtab->project()), _tool(tool), _symtab(symtab) {}
+	ASTIndexBuilder (const CompilerRef &cc, const ProjectRef &project):
+	    _project(project), _cc(cc)
+	{
+		_symtab = std::make_shared<symtab::SymbolTable>(project);
+	}
 
-	void build ();
+	symtab::SymbolTableRef build ();
 
 private:
 	ProjectRef		_project;	/**< project configuration */
-	ClangToolRef		_tool;		/**< tool state */
+	CompilerRef		_cc;		/**< compilation state */
 	symtab::SymbolTableRef	_symtab;	/**< symbol index */
 };
 
@@ -107,20 +110,19 @@ private:
 class ASTIndex : public std::enable_shared_from_this<ASTIndex> {
 private:
 	struct AllocKey {};
-	using ClangToolRef = std::shared_ptr<clang::tooling::ClangTool>;
 
 public:
-	static result<ASTIndexRef>	Build(ProjectRef &project,
-					    ClangToolRef &tool);
+	static result<ASTIndexRef>	Build(const ProjectRef &project,
+					    const CompilerRef &cc);
 
-	ASTIndex (ProjectRef &project, ClangToolRef &tool, const AllocKey &key): 
-	    _project(project), _tool(tool), _symtab(std::make_shared<symtab::SymbolTable>(project))
+	ASTIndex (const CompilerRef &cc, const symtab::SymbolTableRef &symtab,
+	    const AllocKey &key): 
+	    _cc(cc), _symtab(symtab)
 	{
 	}
 
 private:
-	ProjectRef		_project;	/**< project configuration */
-	ClangToolRef		_tool;		/**< tool state */
+	CompilerRef		_cc;		/**< compilation state */
 	symtab::SymbolTableRef	_symtab;	/**< symbol index */
 };
 

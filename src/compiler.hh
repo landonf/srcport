@@ -51,26 +51,30 @@ private:
 	struct AllocKey {};
 
 	using CompilationDatabase = clang::tooling::CompilationDatabase;
-
-	using ClangToolPtr = std::unique_ptr<clang::tooling::ClangTool>;
-	using ASTUnitPtr = std::unique_ptr<clang::ASTUnit>;
-	using ASTUnitList = std::vector<ASTUnitPtr>;
-	using ASTUnitListPtr = std::unique_ptr<ASTUnitList>;
+	using ASTUnitRef = std::shared_ptr<clang::ASTUnit>;
 
 public:
+
 	static result<CompilerRef>	Create(const CompilationDatabase &cdb,
 					     std::vector<std::string> sourcePaths);
 
-	Compiler (ClangToolPtr &tool, ASTUnitListPtr &asts,
-	    const AllocKey &key);
+	Compiler (std::unique_ptr<clang::tooling::ClangTool> &tool,
+		  std::vector<std::unique_ptr<clang::ASTUnit>> &astUnits,
+		  const AllocKey &key);
+
+	/**
+	 * Return the list of parsed ASTUnits.
+	 */
+	const std::vector<ASTUnitRef> &ASTUnits() {
+		return (_astUnits);
+	}
 
 private:
-	ClangToolPtr		_cctool;	/**< clang tool instance */
-	ASTUnitListPtr		_asts;		/**< parsed AST objects for our
-						     input source files; these
-						     own all AST nodes
-						     allocations */
-
+	std::unique_ptr<clang::tooling::ClangTool>	_cctool;	/**< clang tool instance */
+	std::vector<ASTUnitRef>				_astUnits;	/**< parsed AST objects for our
+									     input source files; these
+									     own all AST nodes
+									     allocations */
 };
 
 using CompilerRef = std::shared_ptr<Compiler>;

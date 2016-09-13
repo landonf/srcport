@@ -67,16 +67,13 @@ int main(int argc, const char **argv) {
 		PathPattern(*&SourcePaths), PathPattern(*&HostPaths)
 	);
 
-	/* Instantiate our clang tool instance */
-	auto cctool = make_shared<ClangTool>(opts.getCompilations(), opts.getSourcePathList());
-
 	/* Instantiate our compiler instance */
 	auto compiler = Compiler::Create(opts.getCompilations(),
 	    opts.getSourcePathList());
 
 	/* Build our AST index */
 	auto index = compiler >>= [&](const CompilerRef &cc) {
-		return (ASTIndex::Build(project, cctool));
+		return (ASTIndex::Build(project, cc));
 	};
 
 	// TODO: Use the ASTIndex for something.

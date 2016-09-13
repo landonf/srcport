@@ -234,7 +234,7 @@ public:
 	template <typename K, typename V>
 	    using rmultimap = std::unordered_multimap<K, V, sptr_hash<K>, sptr_eqto<K>>;
 	
-	SymbolTable (ProjectRef &project):
+	SymbolTable (const ProjectRef &project):
 	    _proj(project)
 	{}
 
