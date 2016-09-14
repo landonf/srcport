@@ -276,61 +276,6 @@ ASTIndexBuilder::build()
 	return (_symtab);
 }
 
-static void
-printMacroArgs(raw_ostream &os, const MacroInfo &info)
-{
-	if (!info.isFunctionLike())
-		return;
-
-	os << "(";
-
-	auto args = info.args();
-	auto numArgs = args.size();
-	for (size_t i = 0; i < numArgs; i++) {
-		const auto &arg = args[i];
-		if (i != 0)
-			os << ", ";
-
-		const auto &name = arg->getName();
-
-		if (i+1 == numArgs && name == "__VA_ARGS__") {
-			os << "...";
-		} else {
-			os << name;
-		}
-	}
-
-	if (info.isGNUVarargs())
-		os << "...";
-
-	os << ")";
-}
-
-static void
-printMacroDefinition(raw_ostream &os, const StrRef name, const MacroInfo &info,
-    Preprocessor &cpp)
-{
-	os << "#define\t" << *name;
-	printMacroArgs(os, info);
-
-	if (info.getNumTokens() == 0)
-		return;
-
-	auto tokens = info.tokens();
-
-	if (!tokens.begin()->hasLeadingSpace())
-		os << "\t";
-
-	for (const auto &token : tokens) {
-		SmallString<128> sbuf;
-
-		if (token.hasLeadingSpace())
-			os << ' ';
-
-		os << cpp.getSpelling(token, sbuf);
-	}
-}
-
 /**
  * Build and return an index for @p project using @p cc.
  * 
@@ -343,134 +288,19 @@ ASTIndex::Build(const ProjectRef &project, const CompilerRef &cc)
 	auto symtab = ASTIndexBuilder(cc, project).build();
 	auto idx = make_shared<ASTIndex>(cc, symtab, AllocKey{});
 
-	/* Sort by location */
-	auto locationSort = [] (const Location &lhs, const Location &rhs) {
-		if (*lhs.path() == *rhs.path())
-			return (lhs.line() < rhs.line());
-
-		return (lhs.path()->stringValue() < rhs.path()->stringValue());
-	};
-
-	/* Sort symbols by file location */
-	auto syms = vector<SymbolRef>(idx->_symtab->getSymbols().begin(), idx->_symtab->getSymbols().end());
-	std::sort(syms.begin(), syms.end(), [&](const SymbolRef &lhs, const SymbolRef &rhs){
-		return (locationSort(lhs->location(), rhs->location()));
-	});
-	
-	
-	/** Trim trailing newlines */
-	auto rtrim = [](std::string &s) {
-		s.erase(s.find_last_not_of("\r\n\t")+1);
-	};
-
-	/* Emit definitions */
-	std::shared_ptr<Path> path;
-	for (const auto &sym : syms) {
-		std::string			output;
-		llvm::raw_string_ostream	os(output);
-		auto				USR = sym->USR();
-
-		auto symPath = sym->location().path();
-		if (!path || *path != *symPath) {
-			os << "\n/*\n * Declared in:\n" <<
-			" *    " << symPath->stringValue() << "\n */\n\n";
-			path = symPath;
-		}
-
-		/* Find all usages */
-		std::vector<SymbolUseRef> uses;
-		for (const auto &use : idx->_symtab->getSymbolUses()) {
-			if (use->symbol()->USR() == USR)
-				uses.push_back(use);
-		};
-
-		/* Sort by file location */
-		std::sort(uses.begin(), uses.end(), [&](const SymbolUseRef &lhs, const SymbolUseRef &rhs){
-			return (locationSort(lhs->location(), rhs->location()));
-		});
-
-		/* Emit defined/usage header */
-		std::unordered_set<Location> locSeen;
-
-		os << "/*\n * Declared at:\n";
-		{
-			auto loc = sym->location();
-			auto relPath = loc.path()->basename().stringValue();
-
-			os << " *   " << relPath << ":";
-			os << to_string(loc.line()) << "\n";
-		}
-		os << " *\n";
-
-		os << " * Referenced by:\n";
-		PathRef lastUsePath;
-		size_t pathLineCount = 0;
-		for (const auto &use : uses) {
-			auto loc = use->location().column(0);
-			if (locSeen.count(loc) > 0)
-				continue;
-			else
-				locSeen.emplace(loc);
-
-			auto relPath = loc.path()->basename().stringValue();
-
-			if (!lastUsePath || *lastUsePath != *loc.path()) {
-				pathLineCount = 0;
-				if (lastUsePath)
-					os << "\n";
-
-				lastUsePath = loc.path();
-				os << " *   " << relPath << ":" <<
-				    to_string(loc.line());
-			} else if (pathLineCount < 3) {
-				os << ", " << to_string(loc.line());
-				pathLineCount++;
-			} else if (pathLineCount >= 3) {
-				/* Skip remaining */
-				if (pathLineCount == 3)
-					os << "...";
-
-				pathLineCount++;
-			}
-		}
-		os << "\n */\n";
-
-
-		auto &astUnit = *sym->cursor().unit();
-		auto &langOpts = astUnit.getLangOpts();
-		auto &cpp = astUnit.getPreprocessor();
-
-		PrintingPolicy printPolicy(langOpts);
-		printPolicy.PolishForDeclaration = 1;
-		sym->cursor().node().matchE(
-			[&](const Decl *decl) {
-				/* Don't bother printing the individual
-				 * constants */
-				if (isa<EnumConstantDecl>(decl))
-					return;
-
-				decl->print(os, printPolicy);
-				rtrim(os.str());
-				os << ";";
-			},
-			[&](const Stmt *stmt) {
-				stmt->printPretty(os, nullptr, printPolicy);
-				rtrim(os.str());
-				os << ";";
-			},
-			[&](MacroRef macro) {
-				printMacroDefinition(os, sym->name(),
-				   *macro.getMacroInfo(cpp), cpp);
-			}
-		);
-
-		/* Flush and emit */
-		os.str();
-		if (output.size() > 0) {
-			llvm::outs() << output;
-			llvm::outs() << "\n\n";
-		}
-	}
-
 	return (yield(idx));
+}
+
+/** Return all referenced symbols */
+const symtab::SymbolSet &
+ASTIndex::getSymbols()
+{
+	return (_symtab->getSymbols());
+}
+
+/** Return all symbol references */
+const symtab::SymbolUseSet &
+ASTIndex::getSymbolUses()
+{
+	return (_symtab->getSymbolUses());
 }

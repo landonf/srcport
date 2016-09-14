@@ -116,6 +116,9 @@ public:
 	{
 	}
 
+	const symtab::SymbolSet		&getSymbols();
+	const symtab::SymbolUseSet	&getSymbolUses();
+
 private:
 	CompilerRef		_cc;		/**< compilation state */
 	symtab::SymbolTableRef	_symtab;	/**< symbol index */

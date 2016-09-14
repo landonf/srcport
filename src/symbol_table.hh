@@ -226,6 +226,9 @@ public:
 
 	template <typename K, typename V>
 	    using rmultimap = std::unordered_multimap<K, V, sptr_hash<K>, sptr_eqto<K>>;
+
+	using SymbolSet = rset<SymbolRef>;
+	using SymbolUseSet = rset<SymbolUseRef>;
 	
 	SymbolTable (const ProjectRef &project):
 	    _proj(project)
@@ -256,10 +259,10 @@ public:
 
 private:
 	/** All referenced symbols */
-	rset<SymbolUseRef>			_uses;
+	SymbolUseSet				_uses;
 
 	/** All defined symbols. */
-	rset<SymbolRef>				_syms;
+	SymbolSet				_syms;
 
 	/** USR cache */
 	std::unordered_map<
@@ -295,6 +298,8 @@ private:
 };
 
 using SymbolTableRef = std::shared_ptr<SymbolTable>;
+using SymbolSet = SymbolTable::SymbolSet;
+using SymbolUseSet = SymbolTable::SymbolUseSet;
 
 } /* namespace symtab */
 
