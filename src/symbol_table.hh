@@ -32,6 +32,7 @@
 #define _SRCPORT_SYMBOL_TABLE_HH_
 
 #include <functional>
+#include <mutex>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -244,11 +245,11 @@ public:
 		return (_proj);
 	}
 
-	ftl::maybe<SymbolRef> lookupUSR (const std::string &USR) const;
-	bool hasUSR (const std::string &USR) const;
+	ftl::maybe<SymbolRef> lookupUSR (const std::string &USR);
+	bool hasUSR (const std::string &USR);
 
-	SymbolUseSet usage (const std::string &USR) const;
-	bool hasUsage (const std::string &USR) const;
+	SymbolUseSet usage (const std::string &USR);
+	bool hasUsage (const std::string &USR);
 
 	void addSymbol (SymbolRef symbol);
 	void addSymbolUse (SymbolUseRef use);	
@@ -265,6 +266,13 @@ public:
 	}
 
 private:
+	bool	hasUSR(const std::string &USR,
+		    std::lock_guard<std::mutex> &lock);
+
+	/** Mutex that must be held when performing any
+	 *  access of our state */
+	std::mutex				_lock;
+
 	/** All referenced symbols */
 	SymbolUseSet				_uses;
 
