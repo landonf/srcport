@@ -158,22 +158,13 @@ printMacroDefinition(raw_ostream &os, const StrRef name, const MacroInfo &info,
 static result<pl::Unit>
 emit_compat_header(const ASTIndexRef &idx)
 {
-	/* Sorts by location */
-	auto locationSort = [] (const Location &lhs, const Location &rhs) {
-		if (*lhs.path() == *rhs.path())
-			return (lhs.line() < rhs.line());
-
-		return (lhs.path()->stringValue() < rhs.path()->stringValue());
-	};
-
 	/* Sort symbols by file location */
 	auto syms = vector<SymbolRef>(idx->getSymbols().begin(), idx->getSymbols().end());
 	std::sort(syms.begin(), syms.end(), [&](const SymbolRef &lhs, const SymbolRef &rhs){
-		return (locationSort(lhs->location(), rhs->location()));
+		return (lhs->location() < rhs->location());
 	});
-	
-	
-	/** Trim trailing newlines */
+
+	/** Trims trailing newlines */
 	auto rtrim = [](std::string &s) {
 		s.erase(s.find_last_not_of("\r\n\t")+1);
 	};
@@ -185,6 +176,14 @@ emit_compat_header(const ASTIndexRef &idx)
 		llvm::raw_string_ostream	os(output);
 		auto				USR = sym->USR();
 
+		/* Emit declaration path  */
+		auto symPath = sym->location().path();
+		if (!path || *path != *symPath) {
+			os << "\n/*\n * Declared in:\n" <<
+			    " *    " << symPath->stringValue() << "\n */\n\n";
+			path = symPath;
+		}
+
 		/* Don't bother printing individual enum constants */
 		if (sym->cursor().node().match(
 			[](const Decl *decl) {
@@ -195,72 +194,6 @@ emit_compat_header(const ASTIndexRef &idx)
 		{
 			continue;
 		}
-
-		auto symPath = sym->location().path();
-		if (!path || *path != *symPath) {
-			os << "\n/*\n * Declared in:\n" <<
-			" *    " << symPath->stringValue() << "\n */\n\n";
-			path = symPath;
-		}
-
-		/* Find all usages */
-		std::vector<SymbolUseRef> uses;
-		for (const auto &use : idx->getSymbolUses()) {
-			if (use->symbol()->USR() == USR)
-				uses.push_back(use);
-		};
-
-		/* Sort by file location */
-		std::sort(uses.begin(), uses.end(), [&](const SymbolUseRef &lhs, const SymbolUseRef &rhs){
-			return (locationSort(lhs->location(), rhs->location()));
-		});
-
-		/* Emit defined/usage header */
-		std::unordered_set<Location> locSeen;
-
-		os << "/*\n * Declared at:\n";
-		{
-			auto loc = sym->location();
-			auto relPath = loc.path()->basename().stringValue();
-
-			os << " *   " << relPath << ":";
-			os << to_string(loc.line()) << "\n";
-		}
-		os << " *\n";
-
-		os << " * Referenced by:\n";
-		PathRef lastUsePath;
-		size_t pathLineCount = 0;
-		for (const auto &use : uses) {
-			auto loc = use->location().column(0);
-			if (locSeen.count(loc) > 0)
-				continue;
-			else
-				locSeen.emplace(loc);
-
-			auto relPath = loc.path()->basename().stringValue();
-
-			if (!lastUsePath || *lastUsePath != *loc.path()) {
-				pathLineCount = 0;
-				if (lastUsePath)
-					os << "\n";
-
-				lastUsePath = loc.path();
-				os << " *   " << relPath << ":" <<
-				    to_string(loc.line());
-			} else if (pathLineCount < 3) {
-				os << ", " << to_string(loc.line());
-				pathLineCount++;
-			} else if (pathLineCount >= 3) {
-				/* Skip remaining */
-				if (pathLineCount == 3)
-					os << "...";
-
-				pathLineCount++;
-			}
-		}
-		os << "\n */\n";
-
 
 		auto &astUnit = *sym->cursor().unit();
 		auto &langOpts = astUnit.getLangOpts();
