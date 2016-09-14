@@ -47,7 +47,7 @@ if [ ! -x "${BWN_DEPS}" ]; then
 fi
 
 # Source cflags
-CFLAGS="-I${KERNOBJS} -I${SRCROOT}/sys -I${SRCROOT}/sys/sys -fno-builtin -nostdinc -D_KERNEL -Wno-pointer-sign"
+CFLAGS="-I${KERNOBJS} -I${SRCROOT}/sys -I${SRCROOT}/sys/sys -fno-builtin -nostdinc -D_KERNEL -DINVARIANTS -DINVARIANT_SUPPORT -Wno-pointer-sign"
 
 cd "${SRCROOT}/sys/dev/bwn" || exit 1
 
