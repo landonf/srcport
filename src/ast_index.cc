@@ -304,3 +304,16 @@ ASTIndex::getSymbolUses()
 {
 	return (_symtab->getSymbolUses());
 }
+
+/** Return all symbol references for a symbol with @p USR */
+SymbolUseSet ASTIndex::getSymbolUses(const string &USR) 
+{
+	return (_symtab->usage(USR));
+}
+
+/** Return true if any symbol references exist for a symbol with @p USR */
+bool
+ASTIndex::hasSymbolUses(const string &USR)
+{
+	return (_symtab->hasUsage(USR));
+}

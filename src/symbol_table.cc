@@ -58,6 +58,9 @@ Location::operator< (const Location &rhs) const
 	return (_column < rhs.column());
 }
 
+/**
+ * Look up the symbol registered for @p USR, if any.
+ */
 ftl::maybe<SymbolRef>
 SymbolTable::lookupUSR (const std::string &USR) const
 {
@@ -68,6 +71,9 @@ SymbolTable::lookupUSR (const std::string &USR) const
 	return (ftl::just((_syms_usr.at(key))));
 }
 
+/**
+ * Return true if a symbol is registered for @p USR.
+ */
 bool
 SymbolTable::hasUSR (const std::string &USR) const
 {
@@ -76,6 +82,39 @@ SymbolTable::hasUSR (const std::string &USR) const
 
 	const auto &key = _usr_cache.at(std::cref(USR));
 	return (_syms_usr.count(key) > 0);
+}
+
+/**
+ * Return the usage set for a symbol with @p USR.
+ */
+SymbolUseSet 
+SymbolTable::usage(const std::string &USR) const
+{
+	SymbolUseSet result;
+
+	if (_usr_cache.count(std::cref(USR)) == 0)
+		return (result);
+
+	const auto &key = _usr_cache.at(std::cref(USR));
+	auto usages = _uses_usr.equal_range(key);
+
+	for (auto &i = usages.first; i != usages.second; i++)
+		result.insert((*i).second);
+
+	return (result);
+}
+
+/**
+ * Return true if any usages are registered for a symbol wth @p USR.
+ */
+bool
+SymbolTable::hasUsage(const string &USR) const
+{
+	if (_usr_cache.count(std::cref(USR)) == 0)
+		return (false);
+
+	const auto &key = _usr_cache.at(std::cref(USR));
+	return (_uses_usr.count(key) > 0);
 }
 
 /**

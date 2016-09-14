@@ -210,7 +210,8 @@ public:
 	template <typename T> struct ref_hash {
 		std::size_t operator() (const std::reference_wrapper<T> &ptr) const
 		{
-			return (std::hash<T*>()(&ptr.get()));
+			std::hash<typename std::decay<T>::type> hash_fn;
+			return (hash_fn(ptr.get()));
 		}
 	};
 
@@ -245,6 +246,9 @@ public:
 
 	ftl::maybe<SymbolRef> lookupUSR (const std::string &USR) const;
 	bool hasUSR (const std::string &USR) const;
+
+	SymbolUseSet usage (const std::string &USR) const;
+	bool hasUsage (const std::string &USR) const;
 
 	void addSymbol (SymbolRef symbol);
 	void addSymbolUse (SymbolUseRef use);	

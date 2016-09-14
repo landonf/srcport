@@ -118,6 +118,8 @@ public:
 
 	const symtab::SymbolSet		&getSymbols();
 	const symtab::SymbolUseSet	&getSymbolUses();
+	symtab::SymbolUseSet	 	 getSymbolUses(const std::string &USR);
+	bool				 hasSymbolUses(const std::string &USR);
 
 private:
 	CompilerRef		_cc;		/**< compilation state */

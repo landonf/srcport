@@ -38,6 +38,8 @@ __FBSDID("$FreeBSD$");
 
 #include <clang/Rewrite/Core/Rewriter.h>
 
+#include <clang/Index/USRGeneration.h>
+
 #include "llvm/Support/CommandLine.h"
 
 #include "unit_type.hpp"
@@ -49,8 +51,10 @@ __FBSDID("$FreeBSD$");
 using namespace std;
 
 using namespace llvm;
-using namespace clang::tooling;
+
 using namespace clang;
+using namespace clang::tooling;
+using namespace clang::index;
 
 using namespace pl;
 
@@ -413,6 +417,64 @@ printFunctionDecl(raw_ostream &os, const FunctionDecl *decl,
 	return (yield(Unit()));
 }
 
+static void
+printEnumDecl(raw_ostream &os, const EnumDecl *decl,
+    const PrintingPolicy &policy, ASTContext &ast, const ASTIndexRef &idx)
+{
+	auto istr = string(1, '\t');
+
+	/* clang extension; symbol is private to its enclosing module */
+	if (decl->isModulePrivate())
+		os << "__module_private__ ";
+
+	os << "enum ";
+
+	/** C++ enum scope */
+	if (decl->isScopedUsingClassTag())
+		os << "class ";
+	else if (decl->isScoped())
+		os << "struct ";
+
+	os << decl->getName();
+
+	/* Fixed type (C++, ObjC, (C?)) */
+	if (decl->isFixed())
+		os << " : " << decl->getIntegerType().stream(policy);
+
+	os << " {\n";
+
+	bool wroteEnum = false;
+	for (auto ec : decl->enumerators()) {
+		SmallString<255>	sbuf;
+		auto			initExpr = ec->getInitExpr();
+
+		if (wroteEnum)
+			os << ",\n";
+		else
+			wroteEnum = true;
+
+		os << istr << ec->getName();
+		if (initExpr != nullptr) {
+			/* TODO: Nested indentation */
+			os << " = ";
+			initExpr->printPretty(os, nullptr, policy);
+		}
+
+		/* Is this constant actually used? */
+		if (generateUSRForDecl(ec, sbuf))
+			abort();
+
+		if (!idx->hasSymbolUses(sbuf.str())) {
+			os << "\t/* unused */";
+		}
+	}
+
+	if (wroteEnum)
+		os << "\n";
+
+	os << "}";
+}
+
 /**
  * Emit our bwn/siba compatibility header. In some future iteration, we'll
  * replace this with a more general-purpose API.
@@ -470,6 +532,10 @@ emit_compat_header(const ASTIndexRef &idx)
 					auto func = dyn_cast<FunctionDecl>(decl);
 					printFunctionDecl(os, func,
 					    printPolicy, astContext);
+				} else if (isa<EnumDecl>(decl)) {
+					auto edecl = dyn_cast<EnumDecl>(decl);
+					printEnumDecl(os, edecl, printPolicy,
+					    astContext, idx);
 				} else {
 					decl->print(os, printPolicy);
 				}
