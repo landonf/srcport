@@ -246,16 +246,16 @@ public:
 	}
 
 	ftl::maybe<SymbolRef> lookupUSR (const std::string &USR);
-	bool hasUSR (const std::string &USR);
+	bool		hasUSR (const std::string &USR);
 
-	SymbolUseSet usage (const std::string &USR);
-	bool hasUsage (const std::string &USR);
+	SymbolUseSet	usage (const std::string &USR);
+	bool		hasUsage (const std::string &USR);
 
-	void addSymbol (SymbolRef symbol);
-	void addSymbolUse (SymbolUseRef use);	
+	SymbolRef	addSymbol (SymbolRef symbol);
+	SymbolUseRef	addSymbolUse (SymbolUseRef use);	
 
-	PathRef getPath (const std::string &strval);
-	StrRef getUSR (const std::string &strval);
+	PathRef		getPath (const std::string &strval);
+	StrRef		getUSR (const std::string &strval);
 
 	const rset<SymbolUseRef> &getSymbolUses () {
 		return (_uses);

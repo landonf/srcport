@@ -179,33 +179,44 @@ SymbolTable::getUSR (const string &strval)
 	return (cached);
 }
 
-void
+/**
+ * Attempt to register a symbol, returning either the newly registered symbol
+ * instance, or the existing instance if already registered.
+ */
+SymbolRef
 SymbolTable::addSymbol (SymbolRef symbol)
 {
 	lock_guard<mutex> lock(_lock);
 
 	if (hasUSR(*symbol->USR(), lock))
-		return;
+		return (_syms_usr.at(symbol->USR()));
 
 	_syms.emplace(symbol);
 	_usr_cache.emplace(std::cref(*symbol->USR()), symbol->USR());
 
 	_syms_usr.emplace(make_pair(symbol->USR(), symbol));
 	_syms_path.emplace(make_pair(symbol->location().path(), symbol));
+
+	return (symbol);
 }
 
-void
+/**
+ * Attempt to register a symbol use, returning either the newly registered use
+ * instance, or the existing instance if already registered.
+ */
+SymbolUseRef
 SymbolTable::addSymbolUse (SymbolUseRef use)
 {
 	lock_guard<mutex> lock(_lock);
 
 	if (_uses.count(use) > 0)
-		return;
+		return (*_uses.find(use));
 
 	_uses.emplace(use);
-
 	_uses_usr.emplace(make_pair(use->symbol()->USR(), use));
 	_uses_path.emplace(make_pair(use->location().path(), use));
+
+	return (use);
 }
 	
 } /* namespace symtab */

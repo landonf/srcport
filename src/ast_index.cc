@@ -127,8 +127,7 @@ ASTIndexUtil::registerSymbol(const clang::NamedDecl &decl)
 				Cursor(&decl, &_astUnit),
 				USR
 			);
-			_symtab->addSymbol(s);
-			return (s);
+			return (_symtab->addSymbol(s));
 		}
 	));
 }
@@ -154,8 +153,7 @@ ASTIndexUtil::registerSymbol(const Stmt *stmt, const IdentifierInfo &ident,
 				Cursor(MacroRef(stmt), &_astUnit),
 				USR
 			);
-			_symtab->addSymbol(s);
-			return (s);
+			return (_symtab->addSymbol(s));
 		}
 	));
 }
@@ -176,8 +174,7 @@ ASTIndexUtil::registerSymbolUse(const Stmt *symbolUse, const SymbolRef &symbol)
 		generateLocation(loc)
 	);
 
-	_symtab->addSymbolUse(s);
-	return (s);
+	return (_symtab->addSymbolUse(s));
 }
 
 /**
