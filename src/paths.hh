@@ -73,6 +73,8 @@ public:
 	bool operator== (const Path &other) const;
 	bool operator!= (const Path &other) const;
 
+	bool operator<	(const Path &other) const;
+
 private:
 	void parse_path ();
 

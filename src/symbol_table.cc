@@ -43,6 +43,21 @@ std::string to_string (const Location &l) {
 	    ":" + std::to_string(l.column()));
 }
 
+/**
+ * Compare locations by by path, line, and finally column.
+ */
+bool
+Location::operator< (const Location &rhs) const
+{
+	if (*_path != *rhs.path())
+		return (*_path < *rhs.path());
+
+	if (_line != rhs.line())
+		return (_line < rhs.line());
+
+	return (_column < rhs.column());
+}
+
 ftl::maybe<SymbolRef>
 SymbolTable::lookupUSR (const std::string &USR) const
 {

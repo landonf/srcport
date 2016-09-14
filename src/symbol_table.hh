@@ -124,6 +124,9 @@ class Location {
 		(unsigned,	line),
 		(unsigned,	column)
 	)
+
+public:
+	bool operator<	(const Location &other) const;
 };
 
 std::string to_string (const Location &l);

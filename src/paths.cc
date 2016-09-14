@@ -150,6 +150,12 @@ Path::operator!= (const Path &other) const
 	return !(*this == other);
 }
 
+bool
+Path::operator< (const Path& other) const
+{
+	return (_str < other.stringValue());
+}
+
 /**
  * Return true if @p path matches @p prefix.
  */
