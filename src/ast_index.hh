@@ -90,9 +90,11 @@ public:
 		_symtab = std::make_shared<symtab::SymbolTable>(project);
 	}
 
-	symtab::SymbolTableRef build ();
+	symtab::SymbolTableRef	build ();
 
 private:
+	void			build (clang::ASTUnit *au);
+
 	ProjectRef		_project;	/**< project configuration */
 	CompilerRef		_cc;		/**< compilation state */
 	symtab::SymbolTableRef	_symtab;	/**< symbol index */

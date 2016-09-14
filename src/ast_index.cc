@@ -32,6 +32,7 @@ __FBSDID("$FreeBSD$");
 #include <clang/Index/USRGeneration.h>
 
 #include <string>
+#include <thread>
 
 #include "ast_index.hh"
 #include "ast_match.hh"
@@ -178,13 +179,12 @@ ASTIndexUtil::registerSymbolUse(const Stmt *symbolUse, const SymbolRef &symbol)
 }
 
 /**
- * Build the AST index
+ * Scan a single ASTUnit.
  */
-symtab::SymbolTableRef
-ASTIndexBuilder::build()
+void
+ASTIndexBuilder::build(ASTUnit *au)
 {
-	ASTIndexMatch	 m;
-	ASTUnit		*au = nullptr;
+	ASTIndexMatch m;
 
 	auto registerSymbolUse = [&](const MatchFinder::MatchResult &m) {
 		ASTIndexUtil		 iu(_symtab, *au);
@@ -259,16 +259,53 @@ ASTIndexBuilder::build()
 		    cpp));
 	});
 
-	/* Scan all AST units */
-	for (const auto &astUnit : _cc->ASTUnits()) {
-		auto &finder = m.getFinder();
-		au = &*astUnit;
+	/* Perform scan */
+	auto &finder = m.getFinder();
+	finder.matchAST(au->getASTContext());
+}
 
-		llvm::errs() << "Scanning " <<
-		    astUnit->getMainFileName() << "\n";
+/**
+ * Build the AST index
+ */
+symtab::SymbolTableRef
+ASTIndexBuilder::build()
+{
+	unsigned int			nthr = thread::hardware_concurrency();
+	vector<thread>			threads;
+	vector<shared_ptr<ASTUnit>>	workQueue;
+	mutex				lock;
 
-		finder.matchAST(au->getASTContext());
+
+	/* Set up a simple work queue to process all AST units concurrently */
+	for (const auto &astUnit : _cc->ASTUnits())
+		workQueue.push_back(astUnit);
+
+	for (unsigned int i = 0; i < nthr; i++) {
+		threads.emplace_back([&]() {
+			shared_ptr<ASTUnit> item;
+
+			while (1) {
+				item.reset();
+				lock.lock();
+				if (workQueue.size() > 0) {
+					item = workQueue.back();
+					workQueue.pop_back();
+					llvm::errs() << "Scanning "
+					    << item->getMainFileName() << "\n";
+				}
+				lock.unlock();
+
+				if (!item)
+					break;
+
+				build(&*item);
+			}
+		});
 	}
+
+	/* Wait for completion */
+	for (auto &thr : threads)
+		thr.join();
 
 	return (_symtab);
 }
