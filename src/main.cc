@@ -36,6 +36,8 @@ __FBSDID("$FreeBSD$");
 #include "clang/Tooling/Tooling.h"
 #include "clang/Tooling/CommonOptionsParser.h"
 
+#include <clang/Rewrite/Core/Rewriter.h>
+
 #include "llvm/Support/CommandLine.h"
 
 #include "unit_type.hpp"
@@ -44,10 +46,14 @@ __FBSDID("$FreeBSD$");
 #include "ast_index.hh"
 #include "project.hh"
 
-using namespace clang;
-using namespace clang::tooling;
-using namespace llvm;
 using namespace std;
+
+using namespace llvm;
+using namespace clang::tooling;
+using namespace clang;
+
+using namespace pl;
+
 using namespace symtab;
 
 static llvm::cl::OptionCategory PortToolCategory("port options");
@@ -59,7 +65,7 @@ static cl::list<string> HostPaths("host-path", cl::cat(PortToolCategory),
 static cl::list<string> SourcePaths("src-path", cl::cat(PortToolCategory),
     cl::desc("Perform portability analysis within this directory or source file"));
 
-static result<pl::Unit>		emit_compat_header(const ASTIndexRef &idx);
+static result<Unit>	emit_compat_header(const ASTIndexRef &idx);
 
 int main(int argc, const char **argv) {
 	using ftl::operator>>=;
@@ -151,11 +157,267 @@ printMacroDefinition(raw_ostream &os, const StrRef name, const MacroInfo &info,
 	}
 }
 
+static void
+printValueType(raw_ostream &os, QualType &type, const string &name,
+    const PrintingPolicy &policy)
+{
+	QualType		 pointee = type;
+	const PointerType	*ptype = nullptr;
+	const ReferenceType	*rtype = nullptr;
+	string			 ptrStr = "";
+
+	/* Unwrap pointer/reference types */
+	while (isa<PointerType>(pointee) || isa<ReferenceType>(pointee)) {
+		while ((ptype = dyn_cast<PointerType>(pointee))) {
+			ptrStr += "*";
+			pointee = ptype->getPointeeType();
+		}
+
+		while ((rtype = dyn_cast<ReferenceType>(pointee))) {
+			ptrStr += "&";
+			pointee = rtype->getPointeeType();
+		}
+	}
+
+	/* Emit the base type */
+	pointee.print(os, policy);
+
+	/* Emit indentation and pointer/reference string */
+	if (ptrStr.size() > 0 || name.size() > 0) {
+		os << " " << ptrStr << name;
+	}
+}
+
+static result<Unit>
+printAttributes(raw_ostream &os, const Decl *decl, const PrintingPolicy &policy,
+    ASTContext &ast)
+{
+	auto &diags = ast.getDiagnostics();
+
+	if (!decl->hasAttrs())
+		return (yield(Unit()));
+
+	for (auto &attr : decl->getAttrs()) {
+		switch (attr->getKind()) {
+		#define ATTR(X)
+		#define PRAMGA_SPELLING_ATTR(_Name) case attr::_Name:
+		#include <clang/Basic/AttrList.inc>
+		{
+			unsigned diagID = diags.getCustomDiagID(
+			    DiagnosticsEngine::Error,
+			    "MS #pragma-style attributes are unsupported");
+			    auto loc = attr->getLocation();
+			    diags.Report(loc, diagID) << attr->getRange();
+
+			return (fail<Unit>(string("Error emitting attribute")));
+		}
+		default:
+			attr->printPretty(os, policy);
+		}
+	}
+
+	return (yield(Unit()));
+}
+
+static result<Unit>
+printFunctionDecl(raw_ostream &os, const FunctionDecl *decl,
+    const PrintingPolicy &policy, ASTContext &ast)
+{
+	const CXXConstructorDecl	*cxxConstrDecl;
+	const CXXConversionDecl		*cxxConvDecl;
+	const ParenType			*parenType;
+	const FunctionProtoType		*fnType;
+	string				 fnName;
+	auto				&diags = ast.getDiagnostics();
+	size_t				 nargs, nexceptions;
+	bool				 isMethod;
+
+	fnName = decl->getNameInfo().getAsString();
+	nargs = decl->getNumParams();
+
+	/* We handle method definitions distinctly from C functions */
+	isMethod = isa<CXXMethodDecl>(decl);
+
+	/* Storage class. */
+	switch (decl->getStorageClass()) {
+	case SC_None:
+		break;
+	case SC_Static:
+		/* We ignore non-method 'static' designators (along with
+		 * 'inline'), since the goal here is to emit a working
+		 * forward declaration. */
+		if (isMethod)
+			os << "static ";
+		break;
+	case SC_PrivateExtern:
+		/* clang extension; symbol is private to its enclosing module */
+		os << "__module_private__ ";
+		break;	
+	case SC_Extern:
+		os << "extern ";
+		break;
+	case SC_Auto:
+	case SC_Register:
+		unsigned diagID = diags.getCustomDiagID(
+		    DiagnosticsEngine::Error, "unsupported storage class");
+		auto loc = decl->getLocStart();
+		diags.Report(loc, diagID) << decl->getSourceRange();
+
+		return (fail<Unit>(string("Error emitting declaration for ") +
+		    fnName));
+	}
+
+	/* Inline functions. (Intentionally ignored for non-methods. See
+	 * SC_Static above) */
+	if (isMethod && decl->isInlineSpecified())
+		os << "inline ";
+
+	/* C++ */
+	if (decl->isVirtualAsWritten())
+		os << "virtual ";
+	if (decl->isConstexpr() && decl->isExplicitlyDefaulted())
+		os << "constexpr ";
+
+	cxxConstrDecl = dyn_cast<CXXConstructorDecl>(decl);
+	cxxConvDecl = dyn_cast<CXXConversionDecl>(decl);
+	if (cxxConstrDecl && cxxConvDecl) {
+		if (cxxConstrDecl->isExplicitSpecified() &&
+		    cxxConvDecl->isExplicit())
+		{
+			os << "explicit ";
+		}
+	}
+
+	/* Unwrap type paren sugar */
+	string parenName = fnName;
+	auto declType = decl->getType();
+	while ((parenType = dyn_cast<ParenType>(declType))) {
+		parenName = "(" + parenName + ")";
+		declType = parenType->getInnerType();
+	}
+
+	/* Fetch function prototype */
+	if (!(fnType = dyn_cast<FunctionProtoType>(declType))) {
+		unsigned diagID = diags.getCustomDiagID(
+		    DiagnosticsEngine::Error,
+		    "missing function prototype; can't emit declaration");
+		auto loc = decl->getLocStart();
+		diags.Report(loc, diagID) << decl->getSourceRange();
+
+		return (fail<Unit>(string("Error emitting declaration for ") +
+		    fnName));
+	}
+
+	/* Emit non-trailing return type (if any), and (possibly paren-wrapped)
+	 * function name */
+	if (!fnType->hasTrailingReturn()) {
+		auto retType = fnType->getReturnType();
+		printValueType(os, retType, parenName, policy);
+	} else {
+		os << parenName;
+	}
+
+	/* Emit arguments */
+	os << "(";
+	for (size_t i = 0; i < nargs; i++) {
+		auto pdecl = decl->getParamDecl(i);
+		auto type = pdecl->getTypeSourceInfo()->getType();
+
+		if (i > 0)
+			os << ", ";
+
+		printValueType(os, type, pdecl->getNameAsString(), policy);
+	}
+	if (decl->isVariadic()) {
+		if (nargs > 0)
+			os << ", ";
+
+		os << "...";
+	}
+	os << ")";
+
+	/* 
+	 * C++ qualifiers
+	 */
+	if (fnType->isConst())
+		os << " const";
+	if (fnType->isVolatile())
+		os << " volatile";
+	if (fnType->isRestrict())
+		os << " restrict";
+	switch (fnType->getRefQualifier()) {
+	case RQ_None:
+		break;
+	case RQ_LValue:
+		os << "&";
+		break;
+	case RQ_RValue:
+		os << "&&";
+		break;
+	}
+
+	nexceptions = fnType->getNumExceptions();
+	switch (fnType->getExceptionSpecType()) {
+	case EST_None:
+		break;
+	case EST_DynamicNone:
+		break;
+	case EST_Dynamic:
+		os << " throw(";
+		for (size_t i = 0; i < nexceptions; i++) {
+			auto etype = fnType->getExceptionType(i);
+			if (i > 0)
+				os << ", ";
+			os << etype.getAsString(policy);
+		}
+		os << ")";
+		break;
+	case EST_MSAny:
+		os << " throw(...)";
+		break;
+	case EST_BasicNoexcept:
+		os << " noexcept";
+		break;
+	case EST_ComputedNoexcept:
+		os << " noexcept(";
+		fnType->getNoexceptExpr()->printPretty(os, nullptr, policy);
+		os << ")";
+		break;
+		
+	case EST_Unevaluated:
+	case EST_Uninstantiated:
+	case EST_Unparsed:
+		unsigned diagID = diags.getCustomDiagID(
+		    DiagnosticsEngine::Error,
+		    "unsupported exception spec; can't emit declaration");
+		auto loc = decl->getLocStart();
+		diags.Report(loc, diagID) << decl->getSourceRange();
+
+		return (fail<Unit>(string("Error emitting declaration for ") +
+		    fnName));
+	}
+
+	/* Attributes */
+	auto attrResult = printAttributes(os, decl, policy, ast);
+	if (!attrResult.is<ftl::Right<Unit>>())
+		return (attrResult);
+
+	/* C++ pure/default/delete */
+	if (decl->isPure())
+		os << " = 0";
+	else if (decl->isExplicitlyDefaulted())
+		os << " = default";
+	else if (decl->isDeletedAsWritten())
+		os << " = delete";
+
+	return (yield(Unit()));
+}
+
 /**
  * Emit our bwn/siba compatibility header. In some future iteration, we'll
  * replace this with a more general-purpose API.
  */
-static result<pl::Unit>
+static result<Unit>
 emit_compat_header(const ASTIndexRef &idx)
 {
 	/* Sort symbols by file location */
@@ -196,6 +458,7 @@ emit_compat_header(const ASTIndexRef &idx)
 		}
 
 		auto &astUnit = *sym->cursor().unit();
+		auto &astContext = astUnit.getASTContext();
 		auto &langOpts = astUnit.getLangOpts();
 		auto &cpp = astUnit.getPreprocessor();
 
@@ -203,7 +466,13 @@ emit_compat_header(const ASTIndexRef &idx)
 		printPolicy.PolishForDeclaration = 1;
 		sym->cursor().node().matchE(
 			[&](const Decl *decl) {
-				decl->print(os, printPolicy);
+				if (isa<FunctionDecl>(decl)) {
+					auto func = dyn_cast<FunctionDecl>(decl);
+					printFunctionDecl(os, func,
+					    printPolicy, astContext);
+				} else {
+					decl->print(os, printPolicy);
+				}
 				rtrim(os.str());
 				os << ";";
 			},
@@ -226,5 +495,5 @@ emit_compat_header(const ASTIndexRef &idx)
 		}
 	}
 
-	return (yield(pl::Unit()));
+	return (yield(Unit()));
 }
