@@ -118,6 +118,29 @@ public:
 	Cursor (const MacroRef &macro, clang::ASTUnit *astUnit):
 	    Cursor(CursorNode { ftl::constructor<MacroRef>{}, macro }, astUnit)
 	{}
+
+	/**
+	 * Attempt to cast the node to an instance to @tparam T, returning
+	 * nullptr if not possible.
+	 */
+	template<
+	    typename T, 
+	    class = typename std::enable_if<std::is_base_of<clang::Decl, T>::value>::type
+	>
+	const T *
+	as () {
+		return (_node.match(
+		    [](const clang::Decl *decl) {
+			return (clang::dyn_cast<T>(decl));
+		    },
+		    [](const clang::Stmt *stmt) {
+			return (nullptr);
+		    },
+		    [](const MacroRef &) {
+			return (nullptr);
+		    }
+		));
+	}
 };
 
 /**
