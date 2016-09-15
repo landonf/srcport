@@ -70,7 +70,11 @@ public:
 	 */
 	clang::MacroInfo *getMacroInfo (clang::Preprocessor &cpp) {
 		/* Extract macro info */
-		auto name = cpp.getImmediateMacroName(_stmt->getLocStart());
+		auto loc = _stmt->getLocStart();
+		if (cpp.getSourceManager().isMacroArgExpansion(loc))
+			loc = cpp.getSourceManager().getImmediateSpellingLoc(loc);
+
+		auto name = cpp.getImmediateMacroName(loc);
 		auto *ident = cpp.getIdentifierInfo(name);
 
 		auto mdef = cpp.getMacroDefinition(ident);

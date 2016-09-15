@@ -93,7 +93,14 @@ ASTMatchUtil::dumpTree (const SourceLocation &loc, std::string::size_type indent
 	if (loc.isMacroID()) {
 		SourceLocation next;
 
-		next = _srcManager.getImmediateSpellingLoc(loc);
+		if (_srcManager.isMacroArgExpansion(loc)) {
+			next = _srcManager.getImmediateSpellingLoc(loc);
+		} else if (_srcManager.isMacroBodyExpansion(loc)) {
+			next = _srcManager.getImmediateExpansionRange(loc).first;
+		} else {
+			return;
+		}
+
 		dumpTree(next, indent+1);
 	}
 }

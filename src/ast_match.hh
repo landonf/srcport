@@ -142,6 +142,11 @@ namespace matchers {
 	AST_MATCHER(Stmt, isImmediateMacroBodyExpansion)
 	{
 		const auto &smgr = Finder->getASTContext().getSourceManager();
+		auto loc = Node.getLocStart();
+
+		if (!loc.isMacroID())
+			return (false);
+
 		if (!smgr.isMacroBodyExpansion(Node.getLocStart()))
 			return (false);
 
@@ -149,6 +154,20 @@ namespace matchers {
 			return (false);
 
 		return (true);
+	}
+
+	AST_MATCHER(Stmt, isMacroArgExpansion)
+	{
+		SourceLocation		 loc;
+		const auto		&ast = Finder->getASTContext();
+		const auto		&smgr = ast.getSourceManager();
+
+		loc = Node.getLocStart();
+
+		if (!loc.isMacroID())
+			return (false);
+
+		return (smgr.isMacroArgExpansion(loc));
 	}
 
 	AST_MATCHER_P(Stmt, isSourceExpr, ProjectRef, project)
@@ -159,11 +178,13 @@ namespace matchers {
 
 		usedAt = Node.getLocStart();
 
-		if (usedAt.isMacroID()) {
-			if (smgr.isMacroArgExpansion(usedAt))
+		while (usedAt.isValid() && usedAt.isMacroID()) {
+			if (smgr.isMacroArgExpansion(usedAt)) {
 				usedAt = smgr.getImmediateSpellingLoc(usedAt);
-			else
-				usedAt = smgr.getExpansionLoc(usedAt);
+			} else {
+				/* isMacroBodyExpansion(usedAt) */
+				usedAt = smgr.getImmediateExpansionRange(usedAt).first;
+			}
 		}
 
 		return (m.getLocationType(usedAt) == ASTMatchUtil::LOC_SOURCE);

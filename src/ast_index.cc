@@ -147,7 +147,6 @@ ASTIndexUtil::registerSymbol(const Stmt *stmt, const IdentifierInfo &ident,
 	return (_symtab->lookupUSR(*USR).match(
 		[](SymbolRef &s) { return (s); },
 		[&](ftl::otherwise) {
-			
 			auto s = make_shared<Symbol>(
 				make_shared<string>(ident.getName()),
 				generateLocation(minfo->getDefinitionLoc()),
@@ -232,25 +231,36 @@ ASTIndexBuilder::build(ASTUnit *au)
 
 	/* Find all macro expansions */
 	auto findMacroRefs = stmt(allOf(
-	    isImmediateMacroBodyExpansion(),
-	    isHostSymbolReference(_project))
-	).bind("macro");
+	    anyOf(isImmediateMacroBodyExpansion(), isMacroArgExpansion()),
+	    isHostSymbolReference(_project)
+	)).bind("macro");
 	m.addMatcher(findMacroRefs, [&](const MatchFinder::MatchResult &m) {
 		ASTIndexUtil	 iu(_symtab, *au);
 		ASTMatchUtil	 mu(_project, *m.Context);
 		auto		&cpp = au->getPreprocessor();
+		auto		&smgr = mu.srcManager();
+		SourceLocation	 loc;
 		const Stmt	*stmt;
 
 		if (!(stmt = m.Nodes.getNodeAs<Stmt>("macro")))
 			return;
 
 		/* Extract macro info */
-		auto name = cpp.getImmediateMacroName(stmt->getLocStart());
-		auto *ident = cpp.getIdentifierInfo(name);
+		loc = stmt->getLocStart();
+		if (smgr.isMacroArgExpansion(loc))
+			loc = smgr.getImmediateSpellingLoc(loc);
 
+		if (!loc.isMacroID())
+			return;
+
+		auto name = cpp.getImmediateMacroName(loc);
+		auto *ident = cpp.getIdentifierInfo(name);
 		MacroDefinition mdef = cpp.getMacroDefinition(ident);
+
 		MacroInfo *info = mdef.getMacroInfo();
-		
+		if (info == nullptr)
+			return;
+
 		if (mu.getLocationType(info->getDefinitionLoc()) != ASTMatchUtil::LOC_HOST)
 			return;
 		
