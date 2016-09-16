@@ -7,7 +7,8 @@ SRCS+=		ast_index.cc \
 		default_printer.cc \
 		paths.cc \
 		project.cc \
-		symbol_table.cc
+		symbol_table.cc \
+		work_queue.cc
 
 CFLAGS_WARN?=	-Wall -Werror -Wextra \
 		-Wno-unused-parameter \
