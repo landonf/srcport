@@ -2,7 +2,9 @@
 
 SRCS+=		ast_index.cc \
 		ast_match.cc \
+		bwn_printer.cc \
 		compiler.cc \
+		default_printer.cc \
 		paths.cc \
 		project.cc \
 		symbol_table.cc
