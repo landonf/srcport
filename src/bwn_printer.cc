@@ -164,60 +164,17 @@ srcport::emit_bwn_stubs(const ASTIndexRef &idx, llvm::raw_ostream &out)
 		s.erase(s.find_last_not_of("\r\n\t")+1);
 	};
 
-	auto busOps = bwn_bus_ops_struct(idx, syms) >>= [&](const string &str) {
-		auto trimmed = str;
+	/*
+	 * Generate if_bwn_siba.h definitions.
+	 */
 
-		rtrim(trimmed);
-		out << trimmed << ";\n";
+	out << "/*\n * if_bwn_siba.h\n */\n\n";
 
-		return yield(trimmed);
-	};
-
-	if (!busOps.is<ftl::Right<string>>())
-		return (fail<Unit>("generating bus ops failed"));
-
-	auto busImplNative = bwn_bus_ops_impl("siba", "siba", idx, syms) >>= [&](const string &str) {
-		auto trimmed = str;
-
-		rtrim(trimmed);
-		out << trimmed << ";\n";
-
-		return yield(trimmed);
-	};
-
-	if (!busImplNative.is<ftl::Right<string>>())
-		return (fail<Unit>("generating bus impl failed"));
-
-	
-	auto busImplCompat = bwn_bus_ops_impl("bhnd", "bhnd_compat", idx, syms) >>= [&](const string &str) {
-		auto trimmed = str;
-
-		rtrim(trimmed);
-		out << trimmed << ";\n";
-
-		return yield(trimmed);
-	};
-
-	if (!busImplCompat.is<ftl::Right<string>>())
-		return (fail<Unit>("generating bus impl failed"));
-
-	out << bwn_bus_op_redirects(idx, syms);
-
-	/* Emit our bhnd compat definitions */
-	std::shared_ptr<Path> path;
+	/* siba-defined constants */
 	for (const auto &sym : syms) {
 		std::string			output;
 		llvm::raw_string_ostream	os(output);
 		auto				USR = sym->USR();
-		auto				canonicalSym = idx->getCanonicalSymbol(sym);
-
-		/* Emit declaration path  */
-		auto symPath = sym->location().path();
-		if (!path || *path != *symPath) {
-			os << "\n/*\n * Declared in:\n" <<
-			    " *    " << symPath->stringValue() << "\n */\n\n";
-			path = symPath;
-		}
 
 		/* Don't bother printing individual enum constants */
 		if (sym->cursor().as<EnumConstantDecl>() != nullptr)
@@ -229,38 +186,17 @@ srcport::emit_bwn_stubs(const ASTIndexRef &idx, llvm::raw_ostream &out)
 		auto &cpp = astUnit.getPreprocessor();
 
 		PrintingPolicy printPolicy(langOpts);
-		printPolicy.PolishForDeclaration = 1;
-		auto cfg = StyleConfig().symbolStyle(FREEBSD_FN_DEF).isStatic(
-		    true);
-		canonicalSym->cursor().node().matchE(
+		sym->cursor().node().matchE(
 			[&](const Decl *decl) {
-				if (isa<FunctionDecl>(decl)) {
-					auto func = dyn_cast<FunctionDecl>(decl);
-					auto funcCfg = cfg.nameOverride(
-					    bwn_bus_impl_name(func->getName(), "bhnd_compat")
-					);
-
-					printFunctionDecl(os, func, printPolicy,
-					    astContext, funcCfg);
-
-					rtrim(os.str());
-					os << "\n{\n\tpanic(\"unimplemented\");\n}";
-				} else if (isa<EnumDecl>(decl)) {
+				if (isa<EnumDecl>(decl)) {
 					auto edecl = dyn_cast<EnumDecl>(decl);
 					printEnumDecl(os, edecl, printPolicy,
 					    astContext, idx);
 					rtrim(os.str());
 					os << ";";
-				} else {
-					decl->print(os, printPolicy);
-					rtrim(os.str());
-					os << ";";
 				}
 			},
 			[&](const Stmt *stmt) {
-				stmt->printPretty(os, nullptr, printPolicy);
-				rtrim(os.str());
-				os << ";";
 			},
 			[&](MacroRef macro) {
 				printMacroDefinition(os, sym->name(),
@@ -275,6 +211,99 @@ srcport::emit_bwn_stubs(const ASTIndexRef &idx, llvm::raw_ostream &out)
 			out << "\n\n";
 		}
 	}
+
+	/* struct bwn_siba_bus_ops */
+	auto busOps = bwn_bus_ops_struct(idx, syms) >>= [&](const string &str) {
+		auto trimmed = str;
+
+		rtrim(trimmed);
+		out << trimmed << ";\n";
+
+		return yield(trimmed);
+	};
+
+	if (!busOps.is<ftl::Right<string>>())
+		return (fail<Unit>("generating bus ops failed"));
+
+	/* siba API redirection definitions */
+	out << bwn_bus_op_redirects(idx, syms);
+
+	/*
+	 * Generate if_bwn_siba.c implementations.
+	 */
+	out << "\n\n/*\n * if_bwn_siba.c\n */\n\n";
+
+	auto busImplNative = bwn_bus_ops_impl("siba", "siba", idx, syms) >>= [&](const string &str) {
+		auto trimmed = str;
+
+		rtrim(trimmed);
+		out << trimmed << ";\n";
+
+		return yield(trimmed);
+	};
+
+	if (!busImplNative.is<ftl::Right<string>>())
+		return (fail<Unit>("generating bus impl failed"));
+
+	/*
+	 * Generate if_bwn_siba_compat.c implementations.
+	 */
+	out << "\n\n/*\n * if_bwn_siba_compat.c\n */\n\n";
+
+	/* Emit our bhnd_compat_* function definitions */
+	for (const auto &sym : syms) {
+		std::string			output;
+		llvm::raw_string_ostream	os(output);
+		auto				USR = sym->USR();
+		auto				canonicalSym = idx->getCanonicalSymbol(sym);
+
+		auto &astUnit = *sym->cursor().unit();
+		auto &astContext = astUnit.getASTContext();
+		auto &langOpts = astUnit.getLangOpts();
+
+		PrintingPolicy printPolicy(langOpts);
+		auto cfg = StyleConfig().symbolStyle(FREEBSD_FN_DEF).isStatic(
+		    true);
+		canonicalSym->cursor().node().matchE(
+			[&](const Decl *decl) {
+				if (isa<FunctionDecl>(decl)) {
+					auto func = dyn_cast<FunctionDecl>(decl);
+					auto funcCfg = cfg.nameOverride(
+					    bwn_bus_impl_name(func->getName(),
+						"bhnd_compat")
+					);
+
+					printFunctionDecl(os, func, printPolicy,
+					    astContext, funcCfg);
+
+					rtrim(os.str());
+					os << "\n{\n\tpanic(\"unimplemented\");\n}";
+				}
+			},
+			[&](const Stmt *stmt) { },
+			[&](MacroRef macro) { }
+		);
+
+		/* Flush and emit */
+		os.str();
+		if (output.size() > 0) {
+			out << output;
+			out << "\n\n";
+		}
+	}
+
+	auto busImplCompat = bwn_bus_ops_impl("bhnd", "bhnd_compat", idx, syms) >>= [&](const string &str) {
+		auto trimmed = str;
+
+		rtrim(trimmed);
+		out << trimmed << ";\n";
+
+		return yield(trimmed);
+	};
+
+	if (!busImplCompat.is<ftl::Right<string>>())
+		return (fail<Unit>("generating bus impl failed"));
+
 
 	return (yield(Unit()));
 }
