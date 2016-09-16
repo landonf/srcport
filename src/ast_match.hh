@@ -39,6 +39,8 @@
 #include <clang/ASTMatchers/ASTMatchers.h>
 #include <clang/ASTMatchers/ASTMatchFinder.h>
 
+#include <clang/Index/USRGeneration.h>
+
 #include <clang/Lex/Preprocessor.h>
 
 #include "project.hh"
@@ -188,6 +190,20 @@ namespace matchers {
 		}
 
 		return (m.getLocationType(usedAt) == ASTMatchUtil::LOC_SOURCE);
+	}
+
+	/**
+	 * Match on any declaration that's referenced in the symbol table.
+	 */
+	AST_MATCHER_P(Decl, isSymbolUsed, symtab::SymbolTableRef, symtab)
+	{
+		SmallString<255>	sbuf;
+
+		/* Generate USR string */
+		if (clang::index::generateUSRForDecl(&Node, sbuf))
+			return (false);
+
+		return (symtab->hasUsage(sbuf.str()));
 	}
 
 	AST_MATCHER_P(Decl, isHostDecl, ProjectRef, project)

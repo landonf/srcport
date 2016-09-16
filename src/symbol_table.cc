@@ -64,9 +64,9 @@ Location::operator< (const Location &rhs) const
 ftl::maybe<SymbolRef>
 SymbolTable::lookupUSR (const std::string &USR)
 {
-	lock_guard<mutex> lock(_lock);
+	unique_lock<mutex> lock(_lock);
 
-	if (!hasUSR(USR, lock))
+	if (!hasSymbol(USR, lock))
 		return (ftl::Nothing());
 
 	const auto &key = _usr_cache.at(std::cref(USR));
@@ -79,21 +79,59 @@ SymbolTable::lookupUSR (const std::string &USR)
 bool
 SymbolTable::hasUSR (const std::string &USR)
 {
-	lock_guard<mutex> lock(_lock);
-	return hasUSR(USR, lock);
+	unique_lock<mutex> lock(_lock);
+	return hasSymbol(USR, lock);
 }
 
 /**
  * Private locked variant of hasUSR().
  */
 bool
-SymbolTable::hasUSR (const std::string &USR, lock_guard<mutex> &lock)
+SymbolTable::hasSymbol (const std::string &USR, unique_lock<mutex> &lock)
 {
 	if (_usr_cache.count(std::cref(USR)) == 0)
 		return (false);
 
 	const auto &key = _usr_cache.at(std::cref(USR));
 	return (_syms_usr.count(key) > 0);
+}
+
+/**
+ * Look up the definition registered for @p USR, if any.
+ */
+ftl::maybe<SymbolRef>
+SymbolTable::definition (const std::string &USR)
+{
+	unique_lock<mutex> lock(_lock);
+
+	if (!hasDefinition(USR, lock))
+		return (ftl::Nothing());
+
+	const auto &key = _usr_cache.at(std::cref(USR));
+	return (ftl::just((_defs_usr.at(key))));
+}
+
+/**
+ * Return true if a definition is registered for @p USR.
+ */
+bool
+SymbolTable::hasDefinition (const std::string &USR)
+{
+	unique_lock<mutex> lock(_lock);
+	return hasDefinition(USR, lock);
+}
+
+/**
+ * Private locked variant of hasDefinition().
+ */
+bool
+SymbolTable::hasDefinition (const std::string &USR, unique_lock<mutex> &lock)
+{
+	if (_usr_cache.count(std::cref(USR)) == 0)
+		return (false);
+
+	const auto &key = _usr_cache.at(std::cref(USR));
+	return (_defs_usr.count(key) > 0);
 }
 
 
@@ -103,7 +141,7 @@ SymbolTable::hasUSR (const std::string &USR, lock_guard<mutex> &lock)
 SymbolUseSet 
 SymbolTable::usage(const std::string &USR)
 {
-	lock_guard<mutex>	lock(_lock);
+	unique_lock<mutex>	lock(_lock);
 	SymbolUseSet		result;
 
 	if (_usr_cache.count(std::cref(USR)) == 0)
@@ -124,7 +162,7 @@ SymbolTable::usage(const std::string &USR)
 bool
 SymbolTable::hasUsage(const string &USR)
 {
-	lock_guard<mutex> lock(_lock);
+	unique_lock<mutex> lock(_lock);
 
 	if (_usr_cache.count(std::cref(USR)) == 0)
 		return (false);
@@ -140,7 +178,7 @@ SymbolTable::hasUsage(const string &USR)
 PathRef
 SymbolTable::getPath (const string &strval)
 {
-	lock_guard<mutex> lock(_lock);
+	unique_lock<mutex> lock(_lock);
 
 	auto key = std::cref(strval);
 
@@ -166,7 +204,7 @@ SymbolTable::getPath (const string &strval)
 StrRef
 SymbolTable::getUSR (const string &strval)
 {
-	lock_guard<mutex> lock(_lock);
+	unique_lock<mutex> lock(_lock);
 
 	auto key = std::cref(strval);
 
@@ -186,9 +224,9 @@ SymbolTable::getUSR (const string &strval)
 SymbolRef
 SymbolTable::addSymbol (SymbolRef symbol)
 {
-	lock_guard<mutex> lock(_lock);
+	unique_lock<mutex> lock(_lock);
 
-	if (hasUSR(*symbol->USR(), lock))
+	if (hasSymbol(*symbol->USR(), lock))
 		return (_syms_usr.at(symbol->USR()));
 
 	_syms.emplace(symbol);
@@ -201,13 +239,35 @@ SymbolTable::addSymbol (SymbolRef symbol)
 }
 
 /**
+ * Attempt to register a symbol definition, returning either the newly
+ * registered symbol instance, or the existing instance if already registered.
+ */
+SymbolRef
+SymbolTable::addDefinition(SymbolRef symbol)
+{
+	unique_lock<mutex> lock(_lock);
+
+	if (hasDefinition(*symbol->USR(), lock))
+		return (_defs_usr.at(symbol->USR()));
+
+	_defs.emplace(symbol);
+	_usr_cache.emplace(std::cref(*symbol->USR()), symbol->USR());
+
+	_defs_usr.emplace(make_pair(symbol->USR(), symbol));
+	_defs_path.emplace(make_pair(symbol->location().path(), symbol));
+
+	return (symbol);
+}
+
+
+/**
  * Attempt to register a symbol use, returning either the newly registered use
  * instance, or the existing instance if already registered.
  */
 SymbolUseRef
 SymbolTable::addSymbolUse (SymbolUseRef use)
 {
-	lock_guard<mutex> lock(_lock);
+	unique_lock<mutex> lock(_lock);
 
 	if (_uses.count(use) > 0)
 		return (*_uses.find(use));

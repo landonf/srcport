@@ -60,6 +60,8 @@ public:
 	    _symtab(symtab), _astUnit(astUnit), _ast(astUnit.getASTContext())
 	{ }
 
+	symtab::SymbolRef	registerDefinition(
+				    const clang::NamedDecl &symbol);
 	symtab::SymbolRef	registerSymbol(const clang::NamedDecl &symbol);
 	symtab::SymbolRef	registerSymbol(const clang::Stmt *stmt,
 				    const clang::IdentifierInfo &ident,
@@ -119,6 +121,8 @@ public:
 	{
 	}
 
+	const symtab::SymbolRef		 getCanonicalSymbol(
+					     const symtab::SymbolRef &symbol);
 	const symtab::SymbolSet		&getSymbols();
 	const symtab::SymbolUseSet	&getSymbolUses();
 	symtab::SymbolUseSet	 	 getSymbolUses(const std::string &USR);

@@ -49,7 +49,14 @@ using namespace clang::index;
 using namespace symtab;
 using namespace matchers;
 
-static std::unordered_set<string> seen;
+/* Support for locking of the output stream */
+static mutex sync_errs_lock;
+static void
+sync_errs(const std::string &msg) {
+	unique_lock<mutex> lk(sync_errs_lock);
+	llvm::errs() << msg  << "\n";
+	llvm::errs().flush();
+}
 
 /**
  * Cache (or return a cached) declaration USR.
@@ -109,6 +116,29 @@ ASTIndexUtil::generateLocation (const clang::SourceLocation &loc)
 
 	auto path = _symtab->getPath(file->getName());
 	return (Location(path, line, column));
+}
+
+/**
+ * Register definition for @p symbol with the symbol table and return the new
+ * registration, or return the existing registration.
+ */
+SymbolRef
+ASTIndexUtil::registerDefinition(const clang::NamedDecl &decl)
+{
+	/* Register or fetch existing definition */
+	auto USR = cacheUSR(decl);
+	return (_symtab->definition(*USR).match(
+		[](SymbolRef &s) { return (s); },
+		[&](ftl::otherwise) {
+			auto s = make_shared<Symbol>(
+				make_shared<string>(decl.getName()),
+				generateLocation(decl.getLocation()),
+				Cursor(&decl, &_astUnit),
+				USR
+			);
+			return (_symtab->addDefinition(s));
+		}
+	));
 }
 
 /**
@@ -282,7 +312,31 @@ ASTIndexBuilder::indexReferences(ASTUnit *au)
 void
 ASTIndexBuilder::indexDefinitions(ASTUnit *au)
 {
-	// TODO
+	ASTIndexUtil	iu(_symtab, *au);
+	ASTIndexMatch	m;
+
+	/* Register definitions for all referenced functions */
+	auto defnRule = functionDecl(allOf(
+		isDefinition(),
+		isHostDecl(_project),
+		isSymbolUsed(_symtab)
+	)).bind("defn");
+
+	m.addMatcher(defnRule, [&](const MatchFinder::MatchResult &m) {
+		const FunctionDecl *defn;
+		if (!(defn = m.Nodes.getNodeAs<FunctionDecl>("defn")))
+			return;
+
+		iu.registerDefinition(*defn);
+
+		unique_lock<mutex> lk(sync_errs_lock);
+	});
+
+	/* TODO: Add non-function definitions? */
+
+	/* Perform scan */
+	auto &finder = m.getFinder();
+	finder.matchAST(au->getASTContext());
 }
 
 /**
@@ -294,14 +348,8 @@ ASTIndexBuilder::build()
 	WorkQueue	workQueue;
 	mutex		msgLock;
 
-	auto syncOuts = [&](const std::string &msg) {
-		unique_lock<mutex> lk(msgLock);
-		llvm::errs() << msg  << "\n";
-		llvm::errs().flush();
-	};
-
 	/* Locate all in-use symbols by scanning non-host sources first */
-	syncOuts("Indexing symbol references...");
+	sync_errs("Indexing symbol references...");
 	for (const auto &astUnit : _cc->ASTUnits()) {
 		auto file = astUnit->getMainFileName();
 
@@ -309,17 +357,19 @@ ASTIndexBuilder::build()
 			continue;
  
 		workQueue.push_back([&] {
-			syncOuts("Indexing " + astUnit->getMainFileName().str());
+			sync_errs("  Indexing " +
+			    astUnit->getMainFileName().str());
 			indexReferences(&*astUnit);
 		});
 	}
 
 	/* Wait for completion */
 	workQueue.wait();
+	sync_errs("\n");
 
 	/* Now process any host sources, merging enhanced type information
 	 * into the symbol table. */
-	syncOuts("Indexing symbol definitions...");
+	sync_errs("Indexing symbol definitions...");
 	for (const auto &astUnit : _cc->ASTUnits()) {
 		auto file = astUnit->getMainFileName();
 
@@ -327,7 +377,8 @@ ASTIndexBuilder::build()
 			continue;
 
 		workQueue.push_back([&] {
-			syncOuts("Indexing " + astUnit->getMainFileName().str());
+			sync_errs("  Indexing " +
+			    astUnit->getMainFileName().str());
 			indexDefinitions(&*astUnit);
 		});
 	}
@@ -353,27 +404,49 @@ ASTIndex::Build(const ProjectRef &project, const CompilerRef &cc)
 	return (yield(idx));
 }
 
-/** Return all referenced symbols */
+/**
+ * Return the "canonical" symbol instance for @p symbol. If a definition
+ * for @p symbol is available, it will be returned; otherwise, the
+ * original symbol value will be provided.
+ */
+const symtab::SymbolRef
+ASTIndex::getCanonicalSymbol(const symtab::SymbolRef &symbol)
+{
+	return (_symtab->definition(*symbol->USR()).match(
+		[](const SymbolRef &defn)	{ return (defn); },
+		[&](ftl::Nothing)		{ return (symbol); }
+	));
+}
+
+/**
+ * Return all referenced symbols.
+ */
 const symtab::SymbolSet &
 ASTIndex::getSymbols()
 {
 	return (_symtab->getSymbols());
 }
 
-/** Return all symbol references */
+/**
+ * Return all symbol references.
+ */
 const symtab::SymbolUseSet &
 ASTIndex::getSymbolUses()
 {
 	return (_symtab->getSymbolUses());
 }
 
-/** Return all symbol references for a symbol with @p USR */
+/**
+ * Return all symbol references for a symbol with @p USR.
+ */
 SymbolUseSet ASTIndex::getSymbolUses(const string &USR) 
 {
 	return (_symtab->usage(USR));
 }
 
-/** Return true if any symbol references exist for a symbol with @p USR */
+/**
+ * Return true if any symbol references exist for a symbol with @p USR.
+ */
 bool
 ASTIndex::hasSymbolUses(const string &USR)
 {

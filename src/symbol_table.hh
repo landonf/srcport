@@ -275,10 +275,14 @@ public:
 	ftl::maybe<SymbolRef> lookupUSR (const std::string &USR);
 	bool		hasUSR (const std::string &USR);
 
+	ftl::maybe<SymbolRef> definition (const std::string &USR);
+	bool		hasDefinition (const std::string &USR);
+	
 	SymbolUseSet	usage (const std::string &USR);
 	bool		hasUsage (const std::string &USR);
 
 	SymbolRef	addSymbol (SymbolRef symbol);
+	SymbolRef	addDefinition (SymbolRef symbol);
 	SymbolUseRef	addSymbolUse (SymbolUseRef use);	
 
 	PathRef		getPath (const std::string &strval);
@@ -292,9 +296,15 @@ public:
 		return (_syms);
 	}
 
+	const rset<SymbolRef> &getDefinitions () {
+		return (_defs);
+	}
+
 private:
-	bool	hasUSR(const std::string &USR,
-		    std::lock_guard<std::mutex> &lock);
+	bool	hasSymbol(const std::string &USR,
+		    std::unique_lock<std::mutex> &lock);
+	bool	hasDefinition(const std::string &USR,
+		    std::unique_lock<std::mutex> &lock);
 
 	/** Mutex that must be held when performing any
 	 *  access of our state */
@@ -303,8 +313,11 @@ private:
 	/** All referenced symbols */
 	SymbolUseSet				_uses;
 
-	/** All defined symbols. */
+	/** All declared symbols. */
 	SymbolSet				_syms;
+
+	/** All defined symbols. */
+	SymbolSet				_defs;
 
 	/** USR cache */
 	std::unordered_map<
@@ -328,6 +341,12 @@ private:
 
 	/** Symbol USR lookup table */
 	rmap<StrRef, SymbolRef>			_syms_usr;
+
+	/** Definition USR lookup table */
+	rmap<StrRef, SymbolRef>			_defs_usr;
+	
+	/** Definition file lookup table */
+	rmultimap<PathRef, SymbolRef>		_defs_path;
 
 	/** SymbolUse file lookup table */
 	rmultimap<PathRef, SymbolUseRef>	_uses_path;

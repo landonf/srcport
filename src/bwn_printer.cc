@@ -209,6 +209,7 @@ srcport::emit_bwn_stubs(const ASTIndexRef &idx, llvm::raw_ostream &out)
 		std::string			output;
 		llvm::raw_string_ostream	os(output);
 		auto				USR = sym->USR();
+		auto				canonicalSym = idx->getCanonicalSymbol(sym);
 
 		/* Emit declaration path  */
 		auto symPath = sym->location().path();
@@ -231,7 +232,7 @@ srcport::emit_bwn_stubs(const ASTIndexRef &idx, llvm::raw_ostream &out)
 		printPolicy.PolishForDeclaration = 1;
 		auto cfg = StyleConfig().symbolStyle(FREEBSD_FN_DEF).isStatic(
 		    true);
-		sym->cursor().node().matchE(
+		canonicalSym->cursor().node().matchE(
 			[&](const Decl *decl) {
 				if (isa<FunctionDecl>(decl)) {
 					auto func = dyn_cast<FunctionDecl>(decl);
