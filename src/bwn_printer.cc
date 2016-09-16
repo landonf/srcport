@@ -266,19 +266,21 @@ srcport::emit_bwn_stubs(const ASTIndexRef &idx, llvm::raw_ostream &out)
 		    true);
 		canonicalSym->cursor().node().matchE(
 			[&](const Decl *decl) {
-				if (isa<FunctionDecl>(decl)) {
-					auto func = dyn_cast<FunctionDecl>(decl);
-					auto funcCfg = cfg.nameOverride(
-					    bwn_bus_impl_name(func->getName(),
-						"bhnd_compat")
-					);
+				auto func = dyn_cast<FunctionDecl>(decl);
+				if (func == nullptr)
+					return;
 
-					printFunctionDecl(os, func, printPolicy,
-					    astContext, funcCfg);
+				auto fname = func->getName();
+				auto implName = bwn_bus_impl_name(fname,
+				    "bhnd_compat");
+				auto funcCfg = cfg.nameOverride(implName);
 
-					rtrim(os.str());
-					os << "\n{\n\tpanic(\"unimplemented\");\n}";
-				}
+				printFunctionDecl(os, func, printPolicy,
+				    astContext, funcCfg);
+
+				rtrim(os.str());
+				os << "\n{\n\tpanic(\"" << fname <<
+				    "() unimplemented\");\n}";
 			},
 			[&](const Stmt *stmt) { },
 			[&](MacroRef macro) { }
