@@ -66,7 +66,8 @@ using namespace srcport;
 
 enum OutputFormatter {
 	OUTPUT_COMPAT_HEADER,	/**< A generic compatibility header format */
-	OUTPUT_BWN_STUBS	/**< FreeBSD bwn(4) driver stubs */
+	OUTPUT_BWN_STUBS,	/**< FreeBSD bwn(4) driver stubs */
+	OUTPUT_NONE		/**< No output */
 };
 
 static llvm::cl::OptionCategory PortToolCategory("port options");
@@ -83,6 +84,7 @@ cl::opt<OutputFormatter> OutputFormat("format", cl::cat(PortToolCategory),
   cl::values(
     clEnumValN(OUTPUT_COMPAT_HEADER,	"compat_header",	"A generic compatibility header"),
     clEnumValN(OUTPUT_BWN_STUBS,	"bwn_stubs", 		"FreeBSD bwn(4) driver stubs"),
+    clEnumValN(OUTPUT_NONE,		"none",			"Disable output (perform indexing only)"),
      clEnumValEnd)
 );
 
@@ -112,6 +114,8 @@ int main(int argc, const char **argv) {
 			return (emit_compat_header(idx, llvm::outs()));
 		case OUTPUT_BWN_STUBS:
 			return (emit_bwn_stubs(idx, llvm::outs()));
+		case OUTPUT_NONE:
+			return (yield(Unit()));
 		}
 	};
 

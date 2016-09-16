@@ -34,6 +34,8 @@ __FBSDID("$FreeBSD$");
 #include <string>
 #include <thread>
 
+#include "work_queue.hh"
+
 #include "ast_index.hh"
 #include "ast_match.hh"
 
@@ -178,10 +180,10 @@ ASTIndexUtil::registerSymbolUse(const Stmt *symbolUse, const SymbolRef &symbol)
 }
 
 /**
- * Scan a single ASTUnit.
+ * Scan a single ASTUnit for symbol references.
  */
 void
-ASTIndexBuilder::build(ASTUnit *au)
+ASTIndexBuilder::indexReferences(ASTUnit *au)
 {
 	ASTIndexMatch m;
 
@@ -275,47 +277,63 @@ ASTIndexBuilder::build(ASTUnit *au)
 }
 
 /**
+ * Scan a single ASTUnit for symbol definitions.
+ */
+void
+ASTIndexBuilder::indexDefinitions(ASTUnit *au)
+{
+	// TODO
+}
+
+/**
  * Build the AST index
  */
 symtab::SymbolTableRef
 ASTIndexBuilder::build()
 {
-	unsigned int			nthr = thread::hardware_concurrency();
-	vector<thread>			threads;
-	vector<shared_ptr<ASTUnit>>	workQueue;
-	mutex				lock;
+	WorkQueue	workQueue;
+	mutex		msgLock;
 
+	auto syncOuts = [&](const std::string &msg) {
+		unique_lock<mutex> lk(msgLock);
+		llvm::errs() << msg  << "\n";
+		llvm::errs().flush();
+	};
 
-	/* Set up a simple work queue to process all AST units concurrently */
-	for (const auto &astUnit : _cc->ASTUnits())
-		workQueue.push_back(astUnit);
+	/* Locate all in-use symbols by scanning non-host sources first */
+	syncOuts("Indexing symbol references...");
+	for (const auto &astUnit : _cc->ASTUnits()) {
+		auto file = astUnit->getMainFileName();
 
-	for (unsigned int i = 0; i < nthr; i++) {
-		threads.emplace_back([&]() {
-			shared_ptr<ASTUnit> item;
-
-			while (1) {
-				item.reset();
-				lock.lock();
-				if (workQueue.size() > 0) {
-					item = workQueue.back();
-					workQueue.pop_back();
-					llvm::errs() << "Scanning "
-					    << item->getMainFileName() << "\n";
-				}
-				lock.unlock();
-
-				if (!item)
-					break;
-
-				build(&*item);
-			}
+		if (_project->hostPaths().match(file))
+			continue;
+ 
+		workQueue.push_back([&] {
+			syncOuts("Indexing " + astUnit->getMainFileName().str());
+			indexReferences(&*astUnit);
 		});
 	}
 
 	/* Wait for completion */
-	for (auto &thr : threads)
-		thr.join();
+	workQueue.wait();
+
+	/* Now process any host sources, merging enhanced type information
+	 * into the symbol table. */
+	syncOuts("Indexing symbol definitions...");
+	for (const auto &astUnit : _cc->ASTUnits()) {
+		auto file = astUnit->getMainFileName();
+
+		if (!_project->hostPaths().match(file))
+			continue;
+
+		workQueue.push_back([&] {
+			syncOuts("Indexing " + astUnit->getMainFileName().str());
+			indexDefinitions(&*astUnit);
+		});
+	}
+
+	/* Wait for completion */
+	workQueue.wait();
 
 	return (_symtab);
 }

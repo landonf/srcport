@@ -93,7 +93,8 @@ public:
 	symtab::SymbolTableRef	build ();
 
 private:
-	void			build (clang::ASTUnit *au);
+	void			indexReferences (clang::ASTUnit *au);
+	void			indexDefinitions (clang::ASTUnit *au);
 
 	ProjectRef		_project;	/**< project configuration */
 	CompilerRef		_cc;		/**< compilation state */
