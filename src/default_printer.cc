@@ -92,6 +92,10 @@ srcport::emit_compat_header(const ASTIndexRef &idx, llvm::raw_ostream &out)
 		llvm::raw_string_ostream	os(output);
 		auto				USR = sym->USR();
 
+		/* Don't bother printing individual enum constants */
+		if (sym->cursor().as<EnumConstantDecl>())
+			continue;
+
 		/* Emit declaration path  */
 		auto symPath = sym->location().path();
 		if (!path || *path != *symPath) {
@@ -100,16 +104,58 @@ srcport::emit_compat_header(const ASTIndexRef &idx, llvm::raw_ostream &out)
 			path = symPath;
 		}
 
-		/* Don't bother printing individual enum constants */
-		if (sym->cursor().node().match(
-			[](const Decl *decl) {
-				return (isa<EnumConstantDecl>(decl));
-			},
-			[](ftl::otherwise) { return (false); }
-		))
+		/* Find all usages */
+		std::vector<SymbolUseRef> uses;
+		for (const auto &use : idx->getSymbolUses()) {
+			if (use->symbol()->USR() == USR)
+				uses.push_back(use);
+		};
+
+		/* Emit defined/usage header */
+		std::unordered_set<Location> locSeen;
+
+		os << "/*\n * Declared at:\n";
 		{
-			continue;
+			auto loc = sym->location();
+			auto relPath = loc.path()->basename().stringValue();
+
+			os << " *   " << relPath << ":";
+			os << to_string(loc.line()) << "\n";
 		}
+		os << " *\n";
+	
+		os << " * Referenced by:\n";
+		PathRef lastUsePath;
+		size_t pathLineCount = 0;
+		for (const auto &use : uses) {
+			auto loc = use->location().column(0);
+			if (locSeen.count(loc) > 0)
+				continue;
+			else
+				locSeen.emplace(loc);
+
+			auto relPath = loc.path()->basename().stringValue();
+
+			if (!lastUsePath || *lastUsePath != *loc.path()) {
+				pathLineCount = 0;
+				if (lastUsePath)
+					os << "\n";
+
+				lastUsePath = loc.path();
+				os << " *   " << relPath << ":" <<
+				    to_string(loc.line());
+			} else if (pathLineCount < 3) {
+				os << ", " << to_string(loc.line());
+				pathLineCount++;
+			} else if (pathLineCount >= 3) {
+				/* Skip remaining */
+				if (pathLineCount == 3)
+					os << "...";
+
+				pathLineCount++;
+			}
+		}
+		os << "\n */\n";
 
 		auto &astUnit = *sym->cursor().unit();
 		auto &astContext = astUnit.getASTContext();
