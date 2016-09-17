@@ -252,39 +252,78 @@ srcport::emit_bwn_stubs(const ASTIndexRef &idx, llvm::raw_ostream &out)
 
 	/* Emit our bhnd_compat_* function definitions */
 	for (const auto &sym : syms) {
-		std::string			output;
-		llvm::raw_string_ostream	os(output);
-		auto				USR = sym->USR();
-		auto				canonicalSym = idx->getCanonicalSymbol(sym);
+		const FunctionDecl		*func;
+		SymbolRef			 defnSym;
+		std::string			 output;
+		llvm::raw_string_ostream	 os(output);
+		std::unordered_set<Location>	 locsSeen;
+		auto				 USR = sym->USR();
 
-		auto &astUnit = *sym->cursor().unit();
+		defnSym = idx->getCanonicalSymbol(sym);
+		if ((func = defnSym->cursor().as<FunctionDecl>()) == nullptr)
+			continue;
+
+		/* Fetch function name */
+		auto fname = func->getName();
+
+		/* Emit usage comment */
+		std::vector<SymbolUseRef> uses;
+		for (const auto &use : idx->getSymbolUses()) {
+			if (use->symbol()->USR() == USR)
+				uses.push_back(use);
+		};
+
+
+		os << "/*\n * " << fname << "()\n";
+		os << " *\n";
+		os << " * Referenced by:\n";
+		PathRef lastUsePath;
+		size_t pathLineCount = 0;
+		for (const auto &use : uses) {
+			auto loc = use->location().column(0);
+			if (locsSeen.count(loc) > 0)
+				continue;
+
+			locsSeen.emplace(loc);
+
+			auto relPath = loc.path()->basename().stringValue();
+
+			if (!lastUsePath || *lastUsePath != *loc.path()) {
+				pathLineCount = 0;
+				if (lastUsePath)
+					os << "\n";
+
+				lastUsePath = loc.path();
+				os << " *   " << relPath << ":" <<
+				    to_string(loc.line());
+			} else if (pathLineCount < 3) {
+				os << ", " << to_string(loc.line());
+				pathLineCount++;
+			} else if (pathLineCount >= 3) {
+				/* Skip remaining */
+				if (pathLineCount == 3)
+					os << "...";
+
+				pathLineCount++;
+			}
+		}
+		os << "\n */\n";
+
+		/* Fetch AST state and print the stub definition */
+		auto &astUnit = *defnSym->cursor().unit();
 		auto &astContext = astUnit.getASTContext();
 		auto &langOpts = astUnit.getLangOpts();
 
 		PrintingPolicy printPolicy(langOpts);
 		auto cfg = StyleConfig().symbolStyle(FREEBSD_FN_DEF).isStatic(
 		    true);
-		canonicalSym->cursor().node().matchE(
-			[&](const Decl *decl) {
-				auto func = dyn_cast<FunctionDecl>(decl);
-				if (func == nullptr)
-					return;
 
-				auto fname = func->getName();
-				auto implName = bwn_bus_impl_name(fname,
-				    "bhnd_compat");
-				auto funcCfg = cfg.nameOverride(implName);
+		auto implName = bwn_bus_impl_name(fname, "bhnd_compat");
+		auto funcCfg = cfg.nameOverride(implName);
 
-				printFunctionDecl(os, func, printPolicy,
-				    astContext, funcCfg);
-
-				rtrim(os.str());
-				os << "\n{\n\tpanic(\"" << fname <<
-				    "() unimplemented\");\n}";
-			},
-			[&](const Stmt *stmt) { },
-			[&](MacroRef macro) { }
-		);
+		printFunctionDecl(os, func, printPolicy, astContext, funcCfg);
+		rtrim(os.str());
+		os << "\n{\n\tpanic(\"" << fname << "() unimplemented\");\n}";
 
 		/* Flush and emit */
 		os.str();
