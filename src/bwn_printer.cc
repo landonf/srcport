@@ -36,6 +36,7 @@ __FBSDID("$FreeBSD$");
 
 #include "compiler.hh"
 #include "ast_index.hh"
+#include "ast_match.hh"
 #include "project.hh"
 
 #include "bwn_printer.hh"
@@ -145,6 +146,61 @@ public:
 		    _paramStyle, false, false));
 	}
 };
+
+static std::pair<vector<string>, size_t>
+find_symbol_callers(const ASTIndexRef &idx, const SymbolRef &sym, size_t max)
+{
+	using namespace clang::ast_matchers;
+	using namespace matchers;
+
+	set<string>	seen;
+	size_t		count = 0;
+
+	auto callRule = functionDecl(allOf(
+		isDefinition(),
+		hasDescendant(callExpr(
+			callee(functionDecl(hasUSR(*sym->USR())))
+		).bind("call"))
+	)).bind("func");
+
+	for (const auto &astUnit : idx->referenceASTUnits()) {
+		ASTIndexMatch	 m;
+
+		m.addMatcher(callRule, [&](const MatchFinder::MatchResult &m) {
+			const FunctionDecl	*func;
+			const CallExpr		*call;
+
+			if (!(func = m.Nodes.getNodeAs<FunctionDecl>("func")))
+				return;
+
+			if (!(call = m.Nodes.getNodeAs<CallExpr>("call")))
+				return;
+
+			/* Skip already indexed callers */
+			if (seen.count(func->getName()) > 0)
+				return;
+
+			/* Limit to max */
+			count++;
+			if (count > max)
+				return;
+
+			/* Record the symbol */
+			seen.emplace(func->getName());
+		});
+
+		auto finder = m.getFinder();
+		finder.matchAST(astUnit->getASTContext());
+	}
+
+	/* Produce result */
+	vector<string> result(seen.begin(), seen.end());
+	std::sort(result.begin(), result.end());
+
+	return (std::move(
+	    pair<vector<string>, size_t>(std::move(result), count)
+	));
+}
 
 /**
  * Emit our bwn/siba compatibility header. In some future iteration, we'll
@@ -267,47 +323,22 @@ srcport::emit_bwn_stubs(const ASTIndexRef &idx, llvm::raw_ostream &out)
 		auto fname = func->getName();
 
 		/* Emit usage comment */
-		std::vector<SymbolUseRef> uses;
-		for (const auto &use : idx->getSymbolUses()) {
-			if (use->symbol()->USR() == USR)
-				uses.push_back(use);
-		};
-
+		auto callerInfo = std::move(find_symbol_callers(idx, sym, 10));
+		auto callers = callerInfo.first;
+		auto callerTotal = callerInfo.second;
 
 		os << "/*\n * " << fname << "()\n";
 		os << " *\n";
 		os << " * Referenced by:\n";
-		PathRef lastUsePath;
-		size_t pathLineCount = 0;
-		for (const auto &use : uses) {
-			auto loc = use->location().column(0);
-			if (locsSeen.count(loc) > 0)
-				continue;
-
-			locsSeen.emplace(loc);
-
-			auto relPath = loc.path()->basename().stringValue();
-
-			if (!lastUsePath || *lastUsePath != *loc.path()) {
-				pathLineCount = 0;
-				if (lastUsePath)
-					os << "\n";
-
-				lastUsePath = loc.path();
-				os << " *   " << relPath << ":" <<
-				    to_string(loc.line());
-			} else if (pathLineCount < 3) {
-				os << ", " << to_string(loc.line());
-				pathLineCount++;
-			} else if (pathLineCount >= 3) {
-				/* Skip remaining */
-				if (pathLineCount == 3)
-					os << "...";
-
-				pathLineCount++;
-			}
+		for (const string &caller : callers) {
+			os << " *   " << caller << "()\n";
 		}
-		os << "\n */\n";
+		if (callers.size() < callerTotal) {
+			os << " * ... and " <<
+			    to_string(callerTotal - callers.size()) <<
+			    " others\n * \n";
+		}
+		os << " */\n";
 
 		/* Fetch AST state and print the stub definition */
 		auto &astUnit = *defnSym->cursor().unit();

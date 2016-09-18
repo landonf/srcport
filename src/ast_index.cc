@@ -351,9 +351,7 @@ ASTIndexBuilder::build()
 	/* Locate all in-use symbols by scanning non-host sources first */
 	sync_errs("Indexing symbol references...");
 	for (const auto &astUnit : _cc->ASTUnits()) {
-		auto file = astUnit->getMainFileName();
-
-		if (_project->hostPaths().match(file))
+		if (!_project->isReferenceAST(*astUnit))
 			continue;
  
 		workQueue.push_back([&] {
@@ -371,9 +369,7 @@ ASTIndexBuilder::build()
 	 * into the symbol table. */
 	sync_errs("Indexing symbol definitions...");
 	for (const auto &astUnit : _cc->ASTUnits()) {
-		auto file = astUnit->getMainFileName();
-
-		if (!_project->hostPaths().match(file))
+		if (!_project->isDefinitionAST(*astUnit))
 			continue;
 
 		workQueue.push_back([&] {
@@ -402,6 +398,20 @@ ASTIndex::Build(const ProjectRef &project, const CompilerRef &cc)
 	auto idx = make_shared<ASTIndex>(cc, symtab, AllocKey{});
 
 	return (yield(idx));
+}
+
+ASTIndex::ASTIndex (const CompilerRef &cc, const symtab::SymbolTableRef &symtab,
+    const AllocKey &key): _cc(cc), _symtab(symtab)
+{
+	const auto project = _symtab->project();
+
+	/* Populate our reference/definition AST lists */
+	for (const auto &astUnit : _cc->ASTUnits()) {
+		if (project->isDefinitionAST(*astUnit))
+			_defUnits.emplace_back(astUnit);
+		else if (project->isReferenceAST(*astUnit))
+			_refUnits.emplace_back(astUnit);
+	}
 }
 
 /**

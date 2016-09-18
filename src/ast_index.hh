@@ -110,16 +110,14 @@ private:
 class ASTIndex : public std::enable_shared_from_this<ASTIndex> {
 private:
 	struct AllocKey {};
+	using ASTUnitRef = std::shared_ptr<clang::ASTUnit>;
 
 public:
 	static result<ASTIndexRef>	Build(const ProjectRef &project,
 					    const CompilerRef &cc);
 
 	ASTIndex (const CompilerRef &cc, const symtab::SymbolTableRef &symtab,
-	    const AllocKey &key): 
-	    _cc(cc), _symtab(symtab)
-	{
-	}
+	    const AllocKey &key);
 
 	const symtab::SymbolRef		 getCanonicalSymbol(
 					     const symtab::SymbolRef &symbol);
@@ -128,9 +126,25 @@ public:
 	symtab::SymbolUseSet	 	 getSymbolUses(const std::string &USR);
 	bool				 hasSymbolUses(const std::string &USR);
 
+	/**
+	 * Return the list of ASTUnits used to discover symbol references.
+	 */
+	const std::vector<ASTUnitRef> &referenceASTUnits() {
+		return (_refUnits);
+	}
+		
+	/**
+	 * Return the list of ASTUnits used to discover symbol definitions.
+	 */
+	const std::vector<ASTUnitRef> &definitionASTUnits() {
+		return (_defUnits);
+	}
+
 private:
 	CompilerRef		_cc;		/**< compilation state */
 	symtab::SymbolTableRef	_symtab;	/**< symbol index */
+	std::vector<ASTUnitRef>	_refUnits;	/**< AST units providing symbol references */
+	std::vector<ASTUnitRef>	_defUnits;	/**< AST units providing symbol definitions */
 };
 
 using ASTIndexRef = std::shared_ptr<ASTIndex>;

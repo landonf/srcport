@@ -172,6 +172,12 @@ public:
 	)
 
 public:
+	/** Return the cursor AST unit */
+	clang::ASTUnit *astUnit() { return (_cursor.unit()); };
+
+	/** Return the cursor AST context */
+	clang::ASTContext &astContext() { return (astUnit()->getASTContext()); }
+
 	/** Is this an anonymous (zero-length name) symbol? */
 	bool isAnonymous () const { return (_name->size() == 0); };
 };

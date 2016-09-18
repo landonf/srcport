@@ -30,3 +30,23 @@
 __FBSDID("$FreeBSD$");
 
 #include "project.hh"
+
+/**
+ * Return true if @p astUnit should be used to index symbol references.
+ */
+bool
+Project::isReferenceAST(const clang::ASTUnit &astUnit) const
+{
+	auto file = astUnit.getMainFileName();
+	return (_sourcePaths.match(file) && !_hostPaths.match(file));
+}
+
+/**
+ * Return true if @p astUnit should be used to index symbol definitions.
+ */
+bool
+Project::isDefinitionAST(const clang::ASTUnit &astUnit) const
+{
+	auto file = astUnit.getMainFileName();
+	return (_hostPaths.match(file));
+}

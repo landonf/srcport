@@ -34,6 +34,8 @@
 #include <string>
 #include <vector>
 
+#include <clang/Frontend/ASTUnit.h>
+
 #include <ftl/functional.h>
 #include <ftl/vector.h>
 #include <ftl/sum_type.h>
@@ -47,6 +49,9 @@ public:
     
     const PathPattern &hostPaths () const { return _hostPaths; }
     const PathPattern &sourcePaths () const { return _sourcePaths; }
+
+    bool isReferenceAST (const clang::ASTUnit &astUnit) const;
+    bool isDefinitionAST (const clang::ASTUnit &astUnit) const;
 
 private:
     PathPattern _sourcePaths;

@@ -193,6 +193,20 @@ namespace matchers {
 	}
 
 	/**
+	 * Match on any declaration with the given USR.
+	 */
+	AST_MATCHER_P(Decl, hasUSR, std::string, USR)
+	{
+		SmallString<255> sbuf;
+
+		/* Generate USR string */
+		if (clang::index::generateUSRForDecl(&Node, sbuf))
+			return (false);
+
+		return (sbuf == USR);
+	}
+
+	/**
 	 * Match on any declaration that's referenced in the symbol table.
 	 */
 	AST_MATCHER_P(Decl, isSymbolUsed, symtab::SymbolTableRef, symtab)
