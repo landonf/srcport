@@ -65,7 +65,7 @@ fi
 # Source cflags
 CFLAGS="-I${KERNOBJS} -I${SRCROOT} -I${SRCROOT}/sys -fno-builtin -nostdinc -D_KERNEL -DINVARIANTS -DINVARIANT_SUPPORT -Wno-pointer-sign -Wno-shift-count-overflow"
 
-${SRCPORT} -host-path="${SRCROOT}/dev/siba" -src-path="${OBJDIR}" -src-path="${SRCROOT}" --format=bwn_stubs ${BWN_SRCS} ${SIBA_SRCS} -- ${CFLAGS} || exit 1
+${SRCPORT} -host-path="${SRCROOT}/dev/siba" --host-path="${SRCROOT}/dev/pci" --host-path="${KERNOBJS}/pci_if.h" -src-path="${OBJDIR}" -src-path="${SRCROOT}" --format=bwn_stubs ${BWN_SRCS} ${SIBA_SRCS} -- ${CFLAGS} || exit 1
 
 echo "Analysis Complete" 1>&2
 exit 0
