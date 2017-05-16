@@ -32,6 +32,7 @@
 #define _SRCPORT_ERROR_HH_
 
 #include <cstring>
+#include <cerrno>
 
 #include <ftl/sum_type.h>
 
