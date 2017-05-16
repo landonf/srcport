@@ -197,9 +197,7 @@ find_symbol_callers(const ASTIndexRef &idx, const SymbolRef &sym, size_t max)
 	vector<string> result(seen.begin(), seen.end());
 	std::sort(result.begin(), result.end());
 
-	return (std::move(
-	    pair<vector<string>, size_t>(std::move(result), count)
-	));
+	return (pair<vector<string>, size_t>(std::move(result), count));
 }
 
 /**
@@ -323,7 +321,7 @@ srcport::emit_bwn_stubs(const ASTIndexRef &idx, llvm::raw_ostream &out)
 		auto fname = func->getName();
 
 		/* Emit usage comment */
-		auto callerInfo = std::move(find_symbol_callers(idx, sym, 10));
+		auto callerInfo = find_symbol_callers(idx, sym, 10);
 		auto callers = callerInfo.first;
 		auto callerTotal = callerInfo.second;
 
