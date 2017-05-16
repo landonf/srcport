@@ -249,7 +249,6 @@ namespace hlist {
         template <typename ... Ms> static M sequence (const M &zero, const std::tuple<Ms...> &operand)
         {
             typedef ftl::Value_type<M> V;
-            typedef ftl::monad<M> TMonad;
             typedef ftl::monoid<V> VMonoid;
             
             const auto operands = to_array(operand);
