@@ -29,6 +29,7 @@
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD$");
 
+#include <cassert>
 #include <cstdlib>
 
 #include "paths.hh"
@@ -212,12 +213,66 @@ Path::isPrefix (const Path &path) const
 }
 
 /**
+ * If this path is a child of @p prefix, strip @p prefix and return the
+ * normalized subpath.
+ * 
+ * @param prefix	The prefix to be stripped.
+ * @param relative	If true, the returned path will be relative. If false,
+ *			it will be absolute.
+ */
+ftl::maybe<Path>
+Path::trimPrefix(const Path &prefix, bool relative) const
+{
+	string			result;
+	string::size_type	start, end;
+
+	/* Ensure everything is in normal form */
+	if (!prefix.inNormalForm())
+		return (this->trimPrefix(prefix.normalize(), relative));
+
+	if (!this->inNormalForm())
+		return (this->normalize().trimPrefix(prefix, relative));
+
+	if (!this->hasPrefix(prefix))
+		return (ftl::Nothing());
+
+	/* Determine prefix length */
+	start = prefix.stringValue().size();
+	end = _str.length();
+
+	if (end <= start)
+		return (ftl::Nothing());
+
+	/* Trim (or add) leading '/' */
+	assert(end > start && _str[start] == '/');
+	if (relative)
+		start++;
+
+	result = _str.substr(start, end - start);
+
+	return (ftl::just(Path(std::move(result))));
+}
+
+
+/**
  * Returns true if the path is in fully normal form.
  */
 bool
 Path::inNormalForm () const
 {
 	return (_normalForm);
+}
+
+/**
+ * Returns true if the path is relative (no leading '/').
+ */
+bool
+Path::isRelative () const
+{
+	if (_str.size() == 0 || _str[0] != '/')
+		return (true);
+
+	return (false);
 }
 
 /**
@@ -298,7 +353,6 @@ Path::normalize () const
 	else
 		return Path(split(true));
 }
-
 
 /**
  * Resolve all symbolic links and relative references, returning

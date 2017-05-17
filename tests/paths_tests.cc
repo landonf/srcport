@@ -34,6 +34,7 @@ __FBSDID("$FreeBSD$");
 #include "paths.hh"
 
 using namespace std;
+using namespace ftl;
 
 namespace Catch {
     template<> struct StringMaker<Path> {
@@ -114,6 +115,25 @@ TEST_CASE("path") {
 			}
 			
 		}
-		
+
+		WHEN("performing prefix trimming") {			
+			THEN("a non-matching prefix should return None") {
+				auto t = file.trimPrefix(Path("/notprefix"), true);
+				REQUIRE(t.is<Nothing>());
+			}
+
+			THEN("trimming an identical path should return None") {
+				auto t = file.trimPrefix(file, true);
+				REQUIRE(t.is<Nothing>());
+			}
+
+			THEN("trimming a child should succeed") {
+				auto tr = file.trimPrefix(root, true);
+				auto ta = file.trimPrefix(root, false);
+	
+				REQUIRE(tr == just(Path("bar/foo.c")));
+				REQUIRE(ta == just(Path("/bar/foo.c")));
+			}
+		}
 	}
 }

@@ -37,6 +37,7 @@
 #include <ftl/functional.h>
 #include <ftl/vector.h>
 #include <ftl/sum_type.h>
+#include <ftl/maybe.h>
 
 #include "error.hh"
 #include "result.hh"
@@ -61,14 +62,17 @@ public:
 	Path basename () const;
 
 	bool inNormalForm () const;
+	bool isRelative () const;
+
 	std::vector<std::string> split (bool normalize = true) const;
 	Path normalize () const;
 	result<Path> resolve () const;
 
 	bool hasPrefix (const Path &prefix) const;
 	bool isPrefix (const Path &path) const;
+	ftl::maybe<Path> trimPrefix(const Path &prefix, bool relative) const;
 
-	size_type size () { return (_size); }
+	size_type size () const { return (_size); }
 
 	bool operator== (const Path &other) const;
 	bool operator!= (const Path &other) const;
