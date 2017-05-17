@@ -46,6 +46,7 @@ using namespace clang::tooling;
 using namespace clang::index;
 
 using namespace pl;
+using namespace ftl;
 using namespace symtab;
 
 static void		printMacroArgs(raw_ostream &os, const MacroInfo &info);
@@ -62,6 +63,26 @@ static void		printEnumDecl(raw_ostream &os, const EnumDecl *decl,
 			    const PrintingPolicy &policy, ASTContext &ast,
 			    const ASTIndexRef &idx);
 
+/* Root paths to be trimmed from any source paths */
+static const vector<Path> pathRoots = {
+};
+
+static Path trimRoots (const Path &path) {
+	if (!path.inNormalForm())
+		return (trimRoots(path.normalize()));
+
+	for (const auto &prefix : pathRoots) {
+		auto t = path.trimPrefix(prefix, true);
+		if (t.is<Path>())
+			return (get<Path>(t));
+	}
+
+	return (path);
+}
+
+static Path trimRoots (const PathRef &path) {
+	return (trimRoots(*path));
+}
 
 /**
  * Enumerate the symbol references in @p idx and emit a compatibility header
@@ -96,14 +117,6 @@ srcport::emit_compat_header(const ASTIndexRef &idx, llvm::raw_ostream &out)
 		if (sym->cursor().as<EnumConstantDecl>())
 			continue;
 
-		/* Emit declaration path  */
-		auto symPath = sym->location().path();
-		if (!path || *path != *symPath) {
-			os << "\n/*\n * Declared in:\n" <<
-			    " *    " << symPath->stringValue() << "\n */\n\n";
-			path = symPath;
-		}
-
 		/* Find all usages */
 		std::vector<SymbolUseRef> uses;
 		for (const auto &use : idx->getSymbolUses()) {
@@ -114,10 +127,12 @@ srcport::emit_compat_header(const ASTIndexRef &idx, llvm::raw_ostream &out)
 		/* Emit defined/usage header */
 		std::unordered_set<Location> locSeen;
 
-		os << "/*\n * Declared at:\n";
+		os << "/* " << *sym->name() << "\n";
+		os << " * \n";
+		os << " * Declared at:\n";
 		{
 			auto loc = sym->location();
-			auto relPath = loc.path()->basename().stringValue();
+			auto relPath = trimRoots(loc.path()).stringValue();
 
 			os << " *   " << relPath << ":";
 			os << to_string(loc.line()) << "\n";
@@ -134,7 +149,7 @@ srcport::emit_compat_header(const ASTIndexRef &idx, llvm::raw_ostream &out)
 			else
 				locSeen.emplace(loc);
 
-			auto relPath = loc.path()->basename().stringValue();
+			auto relPath = trimRoots(loc.path()).stringValue();
 
 			if (!lastUsePath || *lastUsePath != *loc.path()) {
 				pathLineCount = 0;
@@ -562,7 +577,7 @@ printEnumDecl(raw_ostream &os, const EnumDecl *decl,
 			abort();
 
 		if (!idx->hasSymbolUses(sbuf.str())) {
-			os << "\t/* unused */";
+			os << "\t/* not referenced by brcmfmac */";
 		}
 	}
 
