@@ -31,7 +31,6 @@
 #ifndef _SRCPORT_SYMBOL_TABLE_HH_
 #define _SRCPORT_SYMBOL_TABLE_HH_
 
-#include <deque>
 #include <functional>
 #include <mutex>
 #include <string>
