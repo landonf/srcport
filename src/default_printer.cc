@@ -421,7 +421,8 @@ printFunctionDecl(raw_ostream &os, const FunctionDecl *decl,
 	os << "(";
 	for (size_t i = 0; i < nargs; i++) {
 		auto pdecl = decl->getParamDecl(i);
-		auto type = pdecl->getTypeSourceInfo()->getType();
+		auto tsi = pdecl->getTypeSourceInfo();
+		auto type = tsi != NULL ? tsi->getType() : pdecl->getType();
 
 		if (i > 0)
 			os << ", ";
