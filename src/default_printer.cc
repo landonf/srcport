@@ -63,27 +63,6 @@ static void		printEnumDecl(raw_ostream &os, const EnumDecl *decl,
 			    const PrintingPolicy &policy, ASTContext &ast,
 			    const ASTIndexRef &idx);
 
-/* Root paths to be trimmed from any source paths */
-static const vector<Path> pathRoots = {
-};
-
-static Path trimRoots (const Path &path) {
-	if (!path.inNormalForm())
-		return (trimRoots(path.normalize()));
-
-	for (const auto &prefix : pathRoots) {
-		auto t = path.trimPrefix(prefix, true);
-		if (t.is<Path>())
-			return (get<Path>(t));
-	}
-
-	return (path);
-}
-
-static Path trimRoots (const PathRef &path) {
-	return (trimRoots(*path));
-}
-
 /**
  * Enumerate the symbol references in @p idx and emit a compatibility header
  * to @p out.
@@ -93,7 +72,8 @@ static Path trimRoots (const PathRef &path) {
  * pretty printing.
  */
 result<Unit>
-srcport::emit_compat_header(const ASTIndexRef &idx, llvm::raw_ostream &out)
+srcport::emit_compat_header(const ProjectRef &project, const ASTIndexRef &idx,
+    llvm::raw_ostream &out)
 {
 	/* Sort symbols by file location */
 	auto syms = vector<SymbolRef>(idx->getSymbols().begin(), idx->getSymbols().end());
@@ -104,6 +84,12 @@ srcport::emit_compat_header(const ASTIndexRef &idx, llvm::raw_ostream &out)
 	/** Trims trailing newlines */
 	auto rtrim = [](std::string &s) {
 		s.erase(s.find_last_not_of("\r\n\t")+1);
+	};
+
+	/* Trims root prefixes from our source paths */
+	const auto &rootPaths = project->rootPaths();
+	auto trimRoots = [&rootPaths](const PathRef &p) {
+		return (rootPaths.trimPrefix(*p, true).stringValue());
 	};
 
 	/* Emit definitions */
@@ -132,7 +118,7 @@ srcport::emit_compat_header(const ASTIndexRef &idx, llvm::raw_ostream &out)
 		os << " * Declared at:\n";
 		{
 			auto loc = sym->location();
-			auto relPath = trimRoots(loc.path()).stringValue();
+			auto relPath = trimRoots(loc.path());
 
 			os << " *   " << relPath << ":";
 			os << to_string(loc.line()) << "\n";
@@ -149,7 +135,7 @@ srcport::emit_compat_header(const ASTIndexRef &idx, llvm::raw_ostream &out)
 			else
 				locSeen.emplace(loc);
 
-			auto relPath = trimRoots(loc.path()).stringValue();
+			auto relPath = trimRoots(loc.path());
 
 			if (!lastUsePath || *lastUsePath != *loc.path()) {
 				pathLineCount = 0;

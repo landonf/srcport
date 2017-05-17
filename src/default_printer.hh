@@ -40,8 +40,8 @@
 
 namespace srcport {
 
-extern result<pl::Unit>	emit_compat_header(const ASTIndexRef &idx,
-			    llvm::raw_ostream &out);
+extern result<pl::Unit>	emit_compat_header(const ProjectRef &project, 
+			    const ASTIndexRef &idx, llvm::raw_ostream &out);
 
 } /* namespace srcport */
 

@@ -79,6 +79,9 @@ static cl::list<string> HostPaths("host-path", cl::cat(PortToolCategory),
 static cl::list<string> SourcePaths("src-path", cl::cat(PortToolCategory),
     cl::desc("Perform portability analysis within this directory or source file"));
 
+static cl::list<string> RootPaths("root-path", cl::cat(PortToolCategory),
+    cl::desc("Trim this path prefix when emitting source locations"));
+
 cl::opt<OutputFormatter> OutputFormat("format", cl::cat(PortToolCategory),
   cl::desc("Choose output format:"),
   cl::values(
@@ -95,7 +98,9 @@ int main(int argc, const char **argv) {
 		
 	/* Build our project configuration from our command line options */
 	auto project = make_shared<Project>(
-		PathPattern(*&SourcePaths), PathPattern(*&HostPaths)
+		PathPattern(*&SourcePaths),
+		PathPattern(*&HostPaths),
+		PathPattern(*&RootPaths)
 	);
 
 	/* Instantiate our compiler instance */
@@ -111,7 +116,7 @@ int main(int argc, const char **argv) {
 	auto ret = index >>= [&](const ASTIndexRef &idx) {
 		switch (OutputFormat.getValue()) {
 		case OUTPUT_COMPAT_HEADER:
-			return (emit_compat_header(idx, llvm::outs()));
+			return (emit_compat_header(project, idx, llvm::outs()));
 		case OUTPUT_BWN_STUBS:
 			return (emit_bwn_stubs(idx, llvm::outs()));
 		case OUTPUT_NONE:

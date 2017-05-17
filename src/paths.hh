@@ -121,6 +121,8 @@ public:
 		return (match(Path(std::move(path))));
 	}
 
+	Path trimPrefix (const Path &path, bool relative) const;
+
 private:
 	/** Prefixes to match against */
 	std::vector<Path> _prefixes;

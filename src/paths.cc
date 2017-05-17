@@ -369,3 +369,33 @@ Path::resolve () const
 	else
 		return yield(Path(buf));
 }
+
+/**
+ * Trim the longest prefix matching @p path. If no prefix matches, the
+ * original path will be returned.
+ * 
+ * @param relative If true, return a relative path.
+ */
+Path
+PathPattern::trimPrefix (const Path &path, bool relative) const
+{
+	ftl::maybe<Path> best = ftl::Nothing();
+
+	for (const auto &p : _prefixes) {
+		if (!p.isPrefix(path))
+			continue;
+
+		if (best.is<Nothing>()) {
+			best = ftl::just(p);
+		} else if (get<Path>(best).size() < p.normalize().size()) {
+			best = ftl::just(p);
+		}
+	}
+
+	return (best >>= [&](const Path &prefix) {
+		return (path.trimPrefix(prefix, relative));
+	}).match(
+		[](const Path &p)	{ return (p); },
+		[&](otherwise)		{ return (path); }
+	);
+}

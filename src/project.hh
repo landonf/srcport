@@ -45,10 +45,13 @@
 
 class Project {
 public:
-    Project (PathPattern &&sourcePaths, PathPattern &&hostPaths = PathPattern()) : _sourcePaths(std::move(sourcePaths)), _hostPaths(std::move(hostPaths)) {}
+    Project (PathPattern &&sourcePaths,
+	     PathPattern &&hostPaths = PathPattern(),
+	     PathPattern &&rootPaths = PathPattern()) : _sourcePaths(std::move(sourcePaths)), _hostPaths(std::move(hostPaths)), _rootPaths(std::move(rootPaths)) {}
     
     const PathPattern &hostPaths () const { return _hostPaths; }
     const PathPattern &sourcePaths () const { return _sourcePaths; }
+    const PathPattern &rootPaths () const { return _rootPaths; }
 
     bool isReferenceAST (const clang::ASTUnit &astUnit) const;
     bool isDefinitionAST (const clang::ASTUnit &astUnit) const;
@@ -56,6 +59,7 @@ public:
 private:
     PathPattern _sourcePaths;
     PathPattern _hostPaths;
+    PathPattern _rootPaths;
 };
 
 using ProjectRef = std::shared_ptr<Project>;
