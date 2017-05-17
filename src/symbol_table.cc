@@ -36,6 +36,8 @@ __FBSDID("$FreeBSD$");
 using namespace std;
 
 namespace symtab {
+	
+static SymbolUseSet SYMBOL_USE_EMPTY;
 
 /** Location to_string() support */
 std::string to_string (const Location &l) {
@@ -177,22 +179,20 @@ SymbolTable::hasDefinition (const std::string &USR, unique_lock<mutex> &lock)
 /**
  * Return the usage set for a symbol with @p USR.
  */
-SymbolUseSet 
+const SymbolUseSet &
 SymbolTable::usage(const std::string &USR)
 {
 	unique_lock<mutex>	lock(_lock);
-	SymbolUseSet		result;
 
 	if (_usr_cache.count(std::cref(USR)) == 0)
-		return (result);
+		return (SYMBOL_USE_EMPTY);
 
 	const auto &key = _usr_cache.at(std::cref(USR));
-	auto usages = _uses_usr.equal_range(key);
 
-	for (auto &i = usages.first; i != usages.second; i++)
-		result.insert((*i).second);
+	if (_uses_usr.count(key) == 0)
+		return (SYMBOL_USE_EMPTY);
 
-	return (result);
+	return (_uses_usr.at(key));
 }
 
 /**
@@ -272,7 +272,13 @@ SymbolTable::addSymbol (SymbolRef symbol)
 	_usr_cache.emplace(std::cref(*symbol->USR()), symbol->USR());
 
 	_syms_usr.emplace(make_pair(symbol->USR(), symbol));
-	_syms_path.emplace(make_pair(symbol->location().path(), symbol));
+
+	const auto &p = symbol->location().path();
+	if (_syms_path.count(p) == 0) {
+		_syms_path.emplace(make_pair(p, rset<SymbolRef>({symbol})));
+	} else {
+		_syms_path.at(p).emplace(symbol);
+	}
 
 	return (symbol);
 }
@@ -293,7 +299,13 @@ SymbolTable::addDefinition(SymbolRef symbol)
 	_usr_cache.emplace(std::cref(*symbol->USR()), symbol->USR());
 
 	_defs_usr.emplace(make_pair(symbol->USR(), symbol));
-	_defs_path.emplace(make_pair(symbol->location().path(), symbol));
+
+	const auto &p = symbol->location().path();
+	if (_defs_path.count(p) == 0) {
+		_defs_path.emplace(make_pair(p, rset<SymbolRef>({symbol})));
+	} else {
+		_defs_path.at(p).emplace(symbol);
+	}
 
 	return (symbol);
 }
@@ -312,8 +324,20 @@ SymbolTable::addSymbolUse (SymbolUseRef use)
 		return (*_uses.find(use));
 
 	_uses.emplace(use);
-	_uses_usr.emplace(make_pair(use->symbol()->USR(), use));
-	_uses_path.emplace(make_pair(use->location().path(), use));
+
+	const auto &USR = use->symbol()->USR();
+	if (_uses_usr.count(USR) == 0) {
+		_uses_usr.emplace(make_pair(USR, SymbolUseSet({use})));
+	} else {
+		_uses_usr.at(USR).emplace(use);
+	}
+
+	const auto &p = use->location().path();
+	if (_uses_path.count(p) == 0) {
+		_uses_path.emplace(make_pair(p, SymbolUseSet({use})));
+	} else {
+		_uses_path.at(p).emplace(use);
+	}
 
 	return (use);
 }

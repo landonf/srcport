@@ -31,6 +31,7 @@
 #ifndef _SRCPORT_SYMBOL_TABLE_HH_
 #define _SRCPORT_SYMBOL_TABLE_HH_
 
+#include <deque>
 #include <functional>
 #include <mutex>
 #include <string>
@@ -251,12 +252,9 @@ public:
 	template <typename K, typename V>
 	    using rmap = std::unordered_map<K, V, sptr_hash<K>, sptr_eqto<K>>;
 
-	template <typename K, typename V>
-	    using rmultimap = std::unordered_multimap<K, V, sptr_hash<K>, sptr_eqto<K>>;
-
 	using SymbolSet = rset<SymbolRef>;
 	using SymbolUseSet = rset<SymbolUseRef>;
-	
+
 	SymbolTable (const ProjectRef &project):
 	    _proj(project)
 	{}
@@ -267,21 +265,21 @@ public:
 		return (_proj);
 	}
 
-	ftl::maybe<SymbolRef> lookupUSR (const std::string &USR);
-	bool		hasUSR (const std::string &USR);
+	ftl::maybe<SymbolRef>	lookupUSR (const std::string &USR);
+	bool			 hasUSR (const std::string &USR);
 
-	ftl::maybe<SymbolRef> definition (const std::string &USR);
-	bool		hasDefinition (const std::string &USR);
+	ftl::maybe<SymbolRef>	 definition (const std::string &USR);
+	bool			 hasDefinition (const std::string &USR);
 	
-	SymbolUseSet	usage (const std::string &USR);
-	bool		hasUsage (const std::string &USR);
+	const SymbolUseSet	&usage (const std::string &USR);
+	bool			 hasUsage (const std::string &USR);
 
-	SymbolRef	addSymbol (SymbolRef symbol);
-	SymbolRef	addDefinition (SymbolRef symbol);
-	SymbolUseRef	addSymbolUse (SymbolUseRef use);	
+	SymbolRef		 addSymbol (SymbolRef symbol);
+	SymbolRef		 addDefinition (SymbolRef symbol);
+	SymbolUseRef		 addSymbolUse (SymbolUseRef use);	
 
-	PathRef		getPath (const std::string &strval);
-	StrRef		getUSR (const std::string &strval);
+	PathRef			 getPath (const std::string &strval);
+	StrRef			 getUSR (const std::string &strval);
 
 	const rset<SymbolUseRef> &getSymbolUses () {
 		return (_uses);
@@ -332,7 +330,7 @@ private:
 
 
 	/** Symbol file lookup table */
-	rmultimap<PathRef, SymbolRef>		_syms_path;
+	rmap<PathRef, SymbolSet>		_syms_path;
 
 	/** Symbol USR lookup table */
 	rmap<StrRef, SymbolRef>			_syms_usr;
@@ -341,13 +339,13 @@ private:
 	rmap<StrRef, SymbolRef>			_defs_usr;
 	
 	/** Definition file lookup table */
-	rmultimap<PathRef, SymbolRef>		_defs_path;
+	rmap<PathRef, SymbolSet>		_defs_path;
 
 	/** SymbolUse file lookup table */
-	rmultimap<PathRef, SymbolUseRef>	_uses_path;
+	rmap<PathRef, SymbolUseSet>		_uses_path;
 
 	/** SymbolUse USR lookup table */
-	rmultimap<StrRef, SymbolUseRef>		_uses_usr;
+	rmap<StrRef, SymbolUseSet>		_uses_usr;
 
 	/** Project configuration */
 	ProjectRef				_proj;

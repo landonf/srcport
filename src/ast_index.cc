@@ -328,8 +328,6 @@ ASTIndexBuilder::indexDefinitions(ASTUnit *au)
 			return;
 
 		iu.registerDefinition(*defn);
-
-		unique_lock<mutex> lk(sync_errs_lock);
 	});
 
 	/* TODO: Add non-function definitions? */
@@ -346,7 +344,6 @@ symtab::SymbolTableRef
 ASTIndexBuilder::build()
 {
 	WorkQueue	workQueue;
-	mutex		msgLock;
 
 	/* Locate all in-use symbols by scanning non-host sources first */
 	sync_errs("Indexing symbol references...");
@@ -449,7 +446,7 @@ ASTIndex::getSymbolUses()
 /**
  * Return all symbol references for a symbol with @p USR.
  */
-SymbolUseSet ASTIndex::getSymbolUses(const string &USR) 
+const symtab::SymbolUseSet &ASTIndex::getSymbolUses(const string &USR) 
 {
 	return (_symtab->usage(USR));
 }

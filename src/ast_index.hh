@@ -123,7 +123,7 @@ public:
 					     const symtab::SymbolRef &symbol);
 	const symtab::SymbolSet		&getSymbols();
 	const symtab::SymbolUseSet	&getSymbolUses();
-	symtab::SymbolUseSet	 	 getSymbolUses(const std::string &USR);
+	const symtab::SymbolUseSet	&getSymbolUses(const std::string &USR);
 	bool				 hasSymbolUses(const std::string &USR);
 
 	/**
