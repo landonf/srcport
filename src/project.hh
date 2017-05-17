@@ -48,10 +48,13 @@ public:
     Project (PathPattern &&sourcePaths,
 	     PathPattern &&hostPaths = PathPattern(),
 	     PathPattern &&rootPaths = PathPattern()) : _sourcePaths(std::move(sourcePaths)), _hostPaths(std::move(hostPaths)), _rootPaths(std::move(rootPaths)) {}
-    
+
     const PathPattern &hostPaths () const { return _hostPaths; }
     const PathPattern &sourcePaths () const { return _sourcePaths; }
     const PathPattern &rootPaths () const { return _rootPaths; }
+
+    bool isReferencePath (const Path &path) const;
+    bool isDefinitionPath (const Path &path) const;
 
     bool isReferenceAST (const clang::ASTUnit &astUnit) const;
     bool isDefinitionAST (const clang::ASTUnit &astUnit) const;

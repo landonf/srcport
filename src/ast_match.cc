@@ -130,13 +130,20 @@ ASTMatchUtil::getLocationType (clang::SourceLocation loc)
 	else if (loc.isMacroID())
 		return (LOC_MACRO);
 
-	/* Anything located within a host path is a host location */
-	if (locMatches(loc, _project->hostPaths()))
+	auto fid = _srcManager.getFileID(loc);
+	if (fid.isInvalid())
+		return (LOC_EXTERNAL);
+
+	auto fentry = _srcManager.getFileEntryForID(fid);
+	if (fentry == NULL)
+		return (LOC_EXTERNAL);
+
+	/* Check project path matching */
+	Path path(fentry->getName());
+	if (_project->isDefinitionPath(path))
 		return (LOC_HOST);
 
-	/* A source location must be within our defined source paths,
-	 * but not explicitly excluded by a host path */
-	if (locMatches(loc, _project->sourcePaths()))
+	if (_project->isReferencePath(path))
 		return (LOC_SOURCE);
 
 	return (LOC_EXTERNAL);

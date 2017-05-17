@@ -32,13 +32,31 @@ __FBSDID("$FreeBSD$");
 #include "project.hh"
 
 /**
+ * Return true if @p path should be included in symbol reference indexing.
+ */
+bool
+Project::isReferencePath (const Path &path) const
+{
+	return (_sourcePaths.match(path));
+}
+
+/**
+ * Return true if @p path should be included in symbol definition indexing.
+ */
+bool
+Project::isDefinitionPath (const Path &path) const
+{
+	return (_hostPaths.match(path) && !_sourcePaths.match(path));
+}
+
+/**
  * Return true if @p astUnit should be used to index symbol references.
  */
 bool
 Project::isReferenceAST(const clang::ASTUnit &astUnit) const
 {
 	auto file = astUnit.getMainFileName();
-	return (_sourcePaths.match(file) && !_hostPaths.match(file));
+	return (isReferencePath(Path(file)));
 }
 
 /**
@@ -48,5 +66,5 @@ bool
 Project::isDefinitionAST(const clang::ASTUnit &astUnit) const
 {
 	auto file = astUnit.getMainFileName();
-	return (_hostPaths.match(file));
+	return (isDefinitionPath(Path(file)));
 }
