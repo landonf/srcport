@@ -32,6 +32,8 @@ __FBSDID("$FreeBSD$");
 #include <clang/Index/USRGeneration.h>
 #include <clang/AST/AST.h>
 
+#include <cstdio>
+
 #include "unit_type.hpp"
 
 #include "ast_index.hh"
@@ -203,6 +205,43 @@ srcport::emit_compat_header(const ProjectRef &project, const ASTIndexRef &idx,
 	return (yield(Unit()));
 }
 
+/* The source location must point to a real file for diagnostic reporting */
+static bool
+canEmitDiag(SourceLocation &loc, ASTContext &ast)
+{
+	if (loc.isInvalid())
+		return (false);
+
+	auto fid = ast.getSourceManager().getFileID(loc);
+	if (fid.isInvalid())
+		return (false);
+
+	if (ast.getSourceManager().getFileEntryForID(fid) == NULL)
+		return (false);
+
+	return (true);
+}
+
+template <unsigned N>
+static result<Unit>
+emitError(const char (&fmt)[N], const Decl *decl, std::string declName,
+    ASTContext &ast)
+{
+	auto &diags = ast.getDiagnostics();
+	auto loc = decl->getLocStart();
+	auto msgstr = declName + ": " + fmt;
+
+	if (!canEmitDiag(loc, ast)) {
+		llvm::errs() << msgstr << "\n";
+		return (fail<Unit>(msgstr));
+	}
+
+	unsigned diagID = diags.getCustomDiagID(DiagnosticsEngine::Error, fmt);
+	diags.Report(loc, diagID) << decl->getSourceRange();
+
+	return (fail<Unit>(msgstr));
+}
+
 static void
 printMacroArgs(raw_ostream &os, const MacroInfo &info)
 {
@@ -293,8 +332,6 @@ static result<Unit>
 printAttributes(raw_ostream &os, const Decl *decl, const PrintingPolicy &policy,
     ASTContext &ast)
 {
-	auto &diags = ast.getDiagnostics();
-
 	if (!decl->hasAttrs())
 		return (yield(Unit()));
 
@@ -304,13 +341,8 @@ printAttributes(raw_ostream &os, const Decl *decl, const PrintingPolicy &policy,
 		#define PRAMGA_SPELLING_ATTR(_Name) case attr::_Name:
 		#include <clang/Basic/AttrList.inc>
 		{
-			unsigned diagID = diags.getCustomDiagID(
-			    DiagnosticsEngine::Error,
-			    "MS #pragma-style attributes are unsupported");
-			    auto loc = attr->getLocation();
-			    diags.Report(loc, diagID) << attr->getRange();
-
-			return (fail<Unit>(string("Error emitting attribute")));
+			return (emitError("MS #pragma-style attributes "
+			    "are unsupported", decl, attr->getSpelling(), ast));
 		}
 		default:
 			attr->printPretty(os, policy);
@@ -329,7 +361,6 @@ printFunctionDecl(raw_ostream &os, const FunctionDecl *decl,
 	const ParenType			*parenType;
 	const FunctionProtoType		*fnType;
 	string				 fnName;
-	auto				&diags = ast.getDiagnostics();
 	size_t				 nargs, nexceptions;
 	bool				 isMethod;
 
@@ -359,13 +390,8 @@ printFunctionDecl(raw_ostream &os, const FunctionDecl *decl,
 		break;
 	case SC_Auto:
 	case SC_Register:
-		unsigned diagID = diags.getCustomDiagID(
-		    DiagnosticsEngine::Error, "unsupported storage class");
-		auto loc = decl->getLocStart();
-		diags.Report(loc, diagID) << decl->getSourceRange();
-
-		return (fail<Unit>(string("Error emitting declaration for ") +
-		    fnName));
+		return (emitError("cannot emit declaration for unsupported "
+		    "storage class", decl, fnName, ast));
 	}
 
 	/* Inline functions. (Intentionally ignored for non-methods. See
@@ -399,14 +425,8 @@ printFunctionDecl(raw_ostream &os, const FunctionDecl *decl,
 
 	/* Fetch function prototype */
 	if (!(fnType = dyn_cast<FunctionProtoType>(declType))) {
-		unsigned diagID = diags.getCustomDiagID(
-		    DiagnosticsEngine::Error,
-		    "missing function prototype; can't emit declaration");
-		auto loc = decl->getLocStart();
-		diags.Report(loc, diagID) << decl->getSourceRange();
-
-		return (fail<Unit>(string("Error emitting declaration for ") +
-		    fnName));
+		return(emitError("missing function prototype; cannot emit "
+		    "declaration", decl, fnName, ast));
 	}
 
 	/* Emit non-trailing return type (if any), and (possibly paren-wrapped)
@@ -489,14 +509,8 @@ printFunctionDecl(raw_ostream &os, const FunctionDecl *decl,
 	case EST_Unevaluated:
 	case EST_Uninstantiated:
 	case EST_Unparsed:
-		unsigned diagID = diags.getCustomDiagID(
-		    DiagnosticsEngine::Error,
-		    "unsupported exception spec; can't emit declaration");
-		auto loc = decl->getLocStart();
-		diags.Report(loc, diagID) << decl->getSourceRange();
-
-		return (fail<Unit>(string("Error emitting declaration for ") +
-		    fnName));
+		return(emitError("unsupported exception spec; cannot emit "
+		    "declaration", decl, fnName, ast));
 	}
 
 	/* Attributes */
