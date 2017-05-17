@@ -65,21 +65,10 @@ class MacroRef {
 	)
 
 public:
-	/**
-	 * Use the preprocessor to fetch macro info.
-	 */
-	clang::MacroInfo *getMacroInfo (clang::Preprocessor &cpp) {
-		/* Extract macro info */
-		auto loc = _stmt->getLocStart();
-		if (cpp.getSourceManager().isMacroArgExpansion(loc))
-			loc = cpp.getSourceManager().getImmediateSpellingLoc(loc);
+	bool isMacroArgExpansion(clang::Preprocessor &cpp);
+	bool isMacroBodyExpansion(clang::Preprocessor &cpp);
 
-		auto name = cpp.getImmediateMacroName(loc);
-		auto *ident = cpp.getIdentifierInfo(name);
-
-		auto mdef = cpp.getMacroDefinition(ident);
-		return (mdef.getMacroInfo());
-	};
+	clang::MacroInfo *getMacroInfo (clang::Preprocessor &cpp);
 };
 
 /**

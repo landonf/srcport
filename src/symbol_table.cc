@@ -44,6 +44,45 @@ std::string to_string (const Location &l) {
 }
 
 /**
+ * Return true if the macro reference is an argument expansion.
+ */
+bool
+MacroRef::isMacroArgExpansion(clang::Preprocessor &cpp)
+{
+	auto loc = _stmt->getLocStart();
+	return (cpp.getSourceManager().isMacroArgExpansion(loc));
+}
+
+/**
+ * Return true if the macro reference is a body expansion.
+ */
+bool
+MacroRef::isMacroBodyExpansion(clang::Preprocessor &cpp)
+{
+	auto loc = _stmt->getLocStart();
+	return (cpp.getSourceManager().isMacroBodyExpansion(loc));
+}
+
+/**
+ * Use the preprocessor to fetch macro info.
+ */
+clang::MacroInfo *
+MacroRef::getMacroInfo (clang::Preprocessor &cpp)
+{
+	/* Extract macro info */
+	auto loc = _stmt->getLocStart();
+
+	if (this->isMacroArgExpansion(cpp))
+		loc = cpp.getSourceManager().getImmediateSpellingLoc(loc);
+
+	auto name = cpp.getImmediateMacroName(loc);
+	auto *ident = cpp.getIdentifierInfo(name);
+
+	auto mdef = cpp.getMacroDefinition(ident);
+	return (mdef.getMacroInfo());
+};
+
+/**
  * Compare locations by by path, line, and finally column.
  */
 bool
