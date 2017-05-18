@@ -34,6 +34,6 @@ __FBSDID("$FreeBSD$");
 #include "project.hh"
 
 TEST_CASE("project") {
-	Project proj ({"/sys/dev/bwn"});
+	Project proj ({"/sys/dev/bwn"}, {}, {}, {});
 	REQUIRE(proj.sourcePaths().match("/sys/dev/bwn/if_bwn.c"));
 }

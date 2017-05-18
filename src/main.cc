@@ -79,6 +79,9 @@ static cl::list<string> HostPaths("host-path", cl::cat(PortToolCategory),
 static cl::list<string> SourcePaths("src-path", cl::cat(PortToolCategory),
     cl::desc("Perform portability analysis within this directory or source file"));
 
+static cl::list<string> ExcludePaths("exclude-path", cl::cat(PortToolCategory),
+    cl::desc("Exclude this path from both source and host paths"));
+
 static cl::list<string> RootPaths("root-path", cl::cat(PortToolCategory),
     cl::desc("Trim this path prefix when emitting source locations"));
 
@@ -100,6 +103,7 @@ int main(int argc, const char **argv) {
 	auto project = make_shared<Project>(
 		PathPattern(*&SourcePaths),
 		PathPattern(*&HostPaths),
+		PathPattern(*&ExcludePaths),
 		PathPattern(*&RootPaths)
 	);
 

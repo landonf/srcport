@@ -37,7 +37,7 @@ __FBSDID("$FreeBSD$");
 bool
 Project::isReferencePath (const Path &path) const
 {
-	return (_sourcePaths.match(path));
+	return (!_excludePaths.match(path) && _sourcePaths.match(path));
 }
 
 /**
@@ -46,7 +46,13 @@ Project::isReferencePath (const Path &path) const
 bool
 Project::isDefinitionPath (const Path &path) const
 {
-	return (_hostPaths.match(path) && !_sourcePaths.match(path));
+	if (_excludePaths.match(path))
+		return (false);
+
+	if (_sourcePaths.match(path))
+		return (false);
+
+	return (_hostPaths.match(path));
 }
 
 /**
