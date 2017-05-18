@@ -32,11 +32,14 @@ __FBSDID("$FreeBSD$");
 #include <clang/Index/USRGeneration.h>
 #include <clang/AST/AST.h>
 
-#include <cstdio>
-
 #include "unit_type.hpp"
 
+#include "compiler.hh"
 #include "ast_index.hh"
+#include "ast_match.hh"
+#include "project.hh"
+
+#include "bwn_printer.hh"
 
 #include "default_printer.hh"
 
@@ -65,6 +68,64 @@ static void		printEnumDecl(raw_ostream &os, const EnumDecl *decl,
 			    const PrintingPolicy &policy, ASTContext &ast,
 			    const ASTIndexRef &idx);
 
+
+static std::pair<vector<string>, size_t>
+find_symbol_callers(const ProjectRef &project, const ASTIndexRef &idx,
+    const SymbolRef &sym, size_t max)
+{
+	using namespace clang::ast_matchers;
+	using namespace matchers;
+
+	set<string>	seen;
+	size_t		count = 0;
+
+	auto callRule = functionDecl(allOf(
+		isDefinition(),
+		hasDescendant(callExpr(
+			allOf(
+				callee(functionDecl(hasUSR(*sym->USR()))),
+				isSourceExpr(project)
+			)
+		).bind("call"))
+	)).bind("func");
+
+	for (const auto &astUnit : idx->referenceASTUnits()) {
+		ASTIndexMatch	 m;
+
+		m.addMatcher(callRule, [&](const MatchFinder::MatchResult &m) {
+			const FunctionDecl	*func;
+			const CallExpr		*call;
+
+			if (!(func = m.Nodes.getNodeAs<FunctionDecl>("func")))
+				return;
+
+			if (!(call = m.Nodes.getNodeAs<CallExpr>("call")))
+				return;
+
+			/* Skip already indexed callers */
+			if (seen.count(func->getName()) > 0)
+				return;
+
+			/* Limit to max */
+			count++;
+			if (count > max)
+				return;
+
+			/* Record the symbol */
+			seen.emplace(func->getName());
+		});
+
+		auto finder = m.getFinder();
+		finder.matchAST(astUnit->getASTContext());
+	}
+
+	/* Produce result */
+	vector<string> result(seen.begin(), seen.end());
+	std::sort(result.begin(), result.end());
+
+	return (pair<vector<string>, size_t>(std::move(result), count));
+}
+
 /**
  * Enumerate the symbol references in @p idx and emit a compatibility header
  * to @p out.
@@ -79,8 +140,11 @@ srcport::emit_compat_header(const ProjectRef &project, const ASTIndexRef &idx,
 {
 	/* Sort symbols by file location */
 	auto syms = vector<SymbolRef>(idx->getSymbols().begin(), idx->getSymbols().end());
-	std::sort(syms.begin(), syms.end(), [&](const SymbolRef &lhs, const SymbolRef &rhs){
-		return (lhs->location() < rhs->location());
+	std::sort(syms.begin(), syms.end(), [&](const SymbolRef &lhs, const SymbolRef &rhs) {
+		if (lhs->location().path() != rhs->location().path())
+			return (*lhs->location().path() < *rhs->location().path());
+
+		return (*lhs->location() < *rhs->location());
 	});
 
 	/** Trims trailing newlines */
@@ -108,15 +172,28 @@ srcport::emit_compat_header(const ProjectRef &project, const ASTIndexRef &idx,
 		/* Find all usages */
 		std::vector<SymbolUseRef> uses;
 		for (const auto &use : idx->getSymbolUses()) {
-			if (use->symbol()->USR() == USR)
-				uses.push_back(use);
-		};
+			if (use->symbol()->USR() != USR)
+				continue;
 
-		/* Emit defined/usage header */
-		std::unordered_set<Location> locSeen;
+			uses.push_back(use);
+		}
+	
+		/* Sort uses by file path, line number, and column */
+		std::sort(uses.begin(), uses.end(), [&](const SymbolUseRef &lhs, const SymbolUseRef &rhs) {
+			if (lhs->location().path() != rhs->location().path())
+				return (*lhs->location().path() < *rhs->location().path());
 
-		os << "/* " << *sym->name() << "\n";
-		os << " * \n";
+			return (*lhs->location() < *rhs->location());
+		});
+
+		auto &defnSym = idx->getCanonicalSymbol(sym);
+		auto &astUnit = *defnSym->cursor().unit();
+		auto &astContext = astUnit.getASTContext();
+		auto &langOpts = astUnit.getLangOpts();
+		auto &cpp = astUnit.getPreprocessor();
+
+		/* Emit defined/usage comment */
+		os << "/*\n";
 		os << " * Declared at:\n";
 		{
 			auto loc = sym->location();
@@ -127,9 +204,42 @@ srcport::emit_compat_header(const ProjectRef &project, const ASTIndexRef &idx,
 		}
 		os << " *\n";
 	
+		bool emitCallers = defnSym->cursor().node().match(
+			[&](const Decl *decl) {
+				return (isa<FunctionDecl>(decl));
+			},
+			[&](const Stmt *stmt) {
+				return (false);
+			},
+			[&](MacroRef macro) {
+				return (false);
+			}
+		);
+
+		if (emitCallers) {
+			auto callerInfo = find_symbol_callers(project, idx, sym,
+			    20);
+			auto callers = callerInfo.first;
+			auto callerTotal = callerInfo.second;
+
+			os << " * Called by:\n";
+			for (const string &caller : callers) {
+				os << " *   " << caller << "()\n";
+			}
+			if (callers.size() < callerTotal) {
+				os << " * ... and " <<
+				    to_string(callerTotal - callers.size()) <<
+				    " others\n";
+			}
+
+			os << " *\n";
+		}
+
 		os << " * Referenced by:\n";
+		std::unordered_set<Location> locSeen;
 		PathRef lastUsePath;
 		size_t pathLineCount = 0;
+
 		for (const auto &use : uses) {
 			auto loc = use->location().column(0);
 			if (locSeen.count(loc) > 0)
@@ -141,14 +251,15 @@ srcport::emit_compat_header(const ProjectRef &project, const ASTIndexRef &idx,
 
 			if (!lastUsePath || *lastUsePath != *loc.path()) {
 				pathLineCount = 0;
-				if (lastUsePath)
-					os << "\n";
 
-				lastUsePath = loc.path();
+			if (lastUsePath)
+				os << "\n";
+
+			lastUsePath = loc.path();
 				os << " *   " << relPath << ":" <<
 				    to_string(loc.line());
 			} else if (pathLineCount < 3) {
-				os << ", " << to_string(loc.line());
+				os << "," << to_string(loc.line());
 				pathLineCount++;
 			} else if (pathLineCount >= 3) {
 				/* Skip remaining */
@@ -156,18 +267,16 @@ srcport::emit_compat_header(const ProjectRef &project, const ASTIndexRef &idx,
 					os << "...";
 
 				pathLineCount++;
+
 			}
 		}
-		os << "\n */\n";
 
-		auto &astUnit = *sym->cursor().unit();
-		auto &astContext = astUnit.getASTContext();
-		auto &langOpts = astUnit.getLangOpts();
-		auto &cpp = astUnit.getPreprocessor();
+		os << "\n */\n";
 
 		PrintingPolicy printPolicy(langOpts);
 		printPolicy.PolishForDeclaration = 1;
-		sym->cursor().node().matchE(
+
+		defnSym->cursor().node().matchE(
 			[&](const Decl *decl) {
 				if (isa<FunctionDecl>(decl)) {
 					auto func = dyn_cast<FunctionDecl>(decl);
@@ -189,7 +298,7 @@ srcport::emit_compat_header(const ProjectRef &project, const ASTIndexRef &idx,
 				os << ";";
 			},
 			[&](MacroRef macro) {
-				printMacroDefinition(os, sym->name(),
+				printMacroDefinition(os, defnSym->name(),
 				   *macro.getMacroInfo(cpp), cpp);
 			}
 		);
@@ -332,7 +441,7 @@ static result<Unit>
 printAttributes(raw_ostream &os, const Decl *decl, const PrintingPolicy &policy,
     ASTContext &ast)
 {
-	if (!decl->hasAttrs())
+	if (1 || !decl->hasAttrs())
 		return (yield(Unit()));
 
 	for (auto &attr : decl->getAttrs()) {
@@ -577,7 +686,7 @@ printEnumDecl(raw_ostream &os, const EnumDecl *decl,
 			abort();
 
 		if (!idx->hasSymbolUses(sbuf.str())) {
-			os << "\t/* not referenced by brcmfmac */";
+			os << "\t/* not referenced by brcm80211 */";
 		}
 	}
 
