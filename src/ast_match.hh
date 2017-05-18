@@ -183,8 +183,10 @@ namespace matchers {
 		while (usedAt.isValid() && usedAt.isMacroID()) {
 			if (smgr.isMacroArgExpansion(usedAt)) {
 				usedAt = smgr.getImmediateSpellingLoc(usedAt);
-			} else {
-				/* isMacroBodyExpansion(usedAt) */
+			} else if (smgr.isMacroBodyExpansion(usedAt)) {
+				if (!smgr.isAtStartOfImmediateMacroExpansion(usedAt))
+					break;
+
 				usedAt = smgr.getImmediateExpansionRange(usedAt).first;
 			}
 		}

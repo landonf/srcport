@@ -77,13 +77,34 @@ ASTMatchUtil::describe (const SourceLocation &loc) {
 void
 ASTMatchUtil::dump (const SourceLocation &loc)
 {
-	llvm::errs() << describe(loc) << "\n";
+	auto &os = llvm::errs();
+
+	os << describe(loc) << " (";
+	switch (getLocationType(loc)) {
+	case LOC_INVALID:
+		os << "INVALID";
+		break;
+	case LOC_MACRO:
+		os << "MACRO";
+		break;
+	case LOC_EXTERNAL:
+		os << "EXTERNAL";
+		break;
+	case LOC_SOURCE:
+		os << "SOURCE";
+		break;
+	case LOC_HOST:
+		os << "LOC_HOST";
+		break;
+	}
+
+	os << ")\n";
 }
 
 void
 ASTMatchUtil::dumpTree (const SourceLocation &loc, std::string::size_type indent)
 {
-	auto &os = llvm::outs();
+	auto &os = llvm::errs();
 	auto istr = string(indent*2, ' ');
 
 	os << istr << describe(loc) << "\n";
