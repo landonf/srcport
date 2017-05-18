@@ -144,7 +144,7 @@ srcport::emit_compat_header(const ProjectRef &project, const ASTIndexRef &idx,
 		if (lhs->location().path() != rhs->location().path())
 			return (*lhs->location().path() < *rhs->location().path());
 
-		return (*lhs->location() < *rhs->location());
+		return (lhs->location() < rhs->location());
 	});
 
 	/** Trims trailing newlines */
@@ -183,7 +183,7 @@ srcport::emit_compat_header(const ProjectRef &project, const ASTIndexRef &idx,
 			if (lhs->location().path() != rhs->location().path())
 				return (*lhs->location().path() < *rhs->location().path());
 
-			return (*lhs->location() < *rhs->location());
+			return (lhs->location() < rhs->location());
 		});
 
 		auto &defnSym = idx->getCanonicalSymbol(sym);
